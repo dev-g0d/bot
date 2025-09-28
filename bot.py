@@ -17,9 +17,8 @@ def home():
 
 def run_web_server():
     """รัน Web Server ใน Thread แยก โดยใช้ use_reloader=False เพื่อป้องกัน KeyError"""
-    # ดึงค่า PORT จาก Environment Variable ของ Render (ถ้ามี) หรือใช้ 8080 เป็นค่า default
     port = int(os.environ.get("PORT", 8080))
-    # สำคัญ: ต้องใส่ use_reloader=False และ debug=False เพื่อป้องกันการ Fork Process ที่ทำให้เกิด KeyError
+    # สำคัญ: ต้องใส่ use_reloader=False เพื่อป้องกันการ Fork Process ที่ทำให้เกิด KeyError
     web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def keep_alive():
@@ -27,7 +26,7 @@ def keep_alive():
     t = threading.Thread(target=run_web_server)
     t.start()
     
-# --- 2. Configuration ---
+# --- 2. Configuration & API Endpoints ---
 # ดึง Discord Token จาก Environment Variables บน Render
 # **สำคัญ:** ต้องตั้งค่า DISCORD_BOT_TOKEN ใน Environment Variables ของ Render
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
@@ -36,16 +35,15 @@ DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 # **สำคัญ:** เปลี่ยนเลขนี้เป็น ID ช่องจริงของคุณ
 ALLOWED_CHANNEL_ID = 1098314625646329966  
 
-# URL สำหรับตรวจสอบสถานะไฟล์บนเซิร์ฟเวอร์ devg0d
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/" 
-STEAM_API_URL = "https://store.steampowered.com/api/appdetails?appids="
+# ใช้ API นี้แทน Steam Store เพื่อข้อมูลที่แม่นยำกว่า (รวม DLCs)
+STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 
 # ตั้งค่า Intents ที่จำเป็น
 intents = discord.Intents.default()
 intents.messages = True
-intents.message_content = True # ต้องเปิดใน Developer Portal (เจตนาของเนื้อหาข้อความ)
+intents.message_content = True # ต้องเปิดใน Developer Portal
 intents.guilds = True
-# intents.members = True ถูกเปิดใน Discord Developer Portal (ความตั้งใจของสมาชิกเซิร์ฟเวอร์) แล้ว
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -61,19 +59,30 @@ def extract_app_id(message_content):
     return None
 
 def get_steam_info(app_id):
-    """ดึงข้อมูลเกมจาก Steam API"""
+    """ดึงข้อมูลเกมและนับ DLCs จาก SteamCMD API"""
     try:
-        url = f"{STEAM_API_URL}{app_id}&cc=th&l=th"
-        response = requests.get(url, timeout=5)
+        url = f"{STEAMCMD_API_URL}{app_id}"
+        response = requests.get(url, timeout=7)
         response.raise_for_status()
         data = response.json()
         
-        if data and data[app_id]['success']:
-            details = data[app_id]['data']
-            name = details.get('name', 'N/A')
-            header_image = details.get('header_image', 'N/A')
-            # นับจำนวน DLCs
-            dlc_count = len(details.get('dlc', []))
+        # ตรวจสอบว่ามีข้อมูลและอยู่ในสถานะ 'success' หรือไม่
+        if data and data.get('status') == 'success' and app_id in data['data']:
+            app_data = data['data'][app_id]
+            common = app_data.get('common', {})
+            extended = app_data.get('extended', {})
+            
+            name = common.get('name', 'N/A')
+            # ดึง Header Image (ต้องแปลงให้เป็น URL ที่ใช้งานได้)
+            header_image_hash = common.get('header_image', {}).get('english')
+            header_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None
+            
+            # --- แก้ไขตรรกะการนับ DLCs ให้แม่นยำ ---
+            dlc_list_str = extended.get('listofdlc', '')
+            # แยกสตริงด้วย comma และกรองเอาเฉพาะรายการที่ไม่ใช่สตริงว่าง
+            dlc_items = [item for item in dlc_list_str.split(',') if item.strip()]
+            dlc_count = len(dlc_items)
+            # ----------------------------------------
             
             return {
                 'name': name,
@@ -81,12 +90,13 @@ def get_steam_info(app_id):
                 'dlc_count': dlc_count,
             }
         return None
-    except requests.RequestException:
+    except requests.RequestException as e:
+        print(f"Error fetching SteamCMD info for {app_id}: {e}")
         return None
 
 def check_file_status(app_id):
     """
-    ตรวจสอบสถานะของ URL จากเซิร์ฟเวอร์ devg0d และตามหา URL ปลายทางสุดท้ายที่ได้รับ
+    ตรวจสอบสถานะของ URL จากเซิร์ฟเวอร์ devg0d และตามหา URL ที่ให้สถานะ 200 OK
     """
     check_url = f"{DEVGOD_BASE_URL}{app_id}"
     
@@ -94,15 +104,14 @@ def check_file_status(app_id):
         # requests.get พร้อม allow_redirects=True จะติดตาม 302 ไปจนเจอ URL สุดท้าย
         response = requests.get(check_url, allow_redirects=True, timeout=10)
         
-        # ตรวจสอบว่ามีการ Redirect เกิดขึ้นหรือไม่ (เพื่อให้มั่นใจว่ามันผ่านการขอ token)
-        # ถ้ามี history (มีการ Redirect) ให้คืนค่า URL ปลายทางสุดท้ายที่ตามไป
-        if response.history:
+        # คืนค่า URL ปลายทางสุดท้าย (response.url) ก็ต่อเมื่อสถานะสุดท้ายคือ 200 OK
+        if response.status_code == 200:
             return response.url
-        else:
-            # ถ้าไม่มี history หรือสถานะ 404/500/อื่นๆ ให้ส่ง None
-            return None
+        
+        return None # ถ้าสถานะไม่เป็น 200 ให้คืนค่า None
 
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        print(f"Error checking file status: {e}")
         return None
 
 
@@ -142,41 +151,32 @@ async def on_message(message):
         # ข้อมูลเกม
         if steam_data:
             embed.add_field(name="ชื่อเกม", value=steam_data['name'], inline=False)
-            embed.add_field(name="DLCs", value=f"{steam_data['dlc_count']} รายการ", inline=True)
+            embed.add_field(name="DLCs (จาก SteamCMD)", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
             embed.add_field(name="ลิงก์ Steam Store", value=f"[คลิกที่นี่](https://store.steampowered.com/app/{app_id}/)", inline=True)
-            if steam_data['image'] != 'N/A':
+            if steam_data['image']:
                 embed.set_thumbnail(url=steam_data['image'])
         else:
             embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
             
-        # ลิงก์ดาวน์โหลด
+        # ลิงก์ดาวน์โหลด (เฉพาะถ้าได้สถานะ 200 OK)
         if file_url_200:
+            # แสดงผลเป็น Markdown Link ตามที่ร้องขอ
             embed.add_field(
-                name="🔗 ลิงก์ดาวน์โหลด (URL ที่ได้รับ)", 
-                value=f"```\n{file_url_200}\n```\n(URL นี้คือปลายทางที่ตาม Redirect ไป)", 
+                name="🔗 ลิงก์ดาวน์โหลด", 
+                value=f"[**ดาวน์โหลด↗**]({file_url_200})", 
                 inline=False
             )
-        else:
-            embed.add_field(
-                name="🔗 ลิงก์ดาวน์โหลด (สถานะ)", 
-                value=f"ไม่สามารถติดตาม URL จาก `{DEVGOD_BASE_URL}` ไปยังปลายทางได้สำเร็จ", 
-                inline=False
-            )
-
+        # ถ้าไม่พบไฟล์ที่ 200 OK จะไม่แสดง Field ลิงก์นี้เลย
+        
         await message.channel.send(embed=embed)
         
     else:
         # --- ลบข้อความที่ไม่เกี่ยวข้อง ---
         try:
-            # ลบข้อความที่ไม่ใช่ App ID หรือ URL ที่ถูกต้อง
             await message.delete()
-            # พิมพ์ log แจ้งว่าลบข้อความแล้ว
-            # print(f"Deleted irrelevant message from {message.author}: '{message.content}'") 
         except discord.Forbidden:
-            # ข้อผิดพลาดเมื่อบอทไม่มีสิทธิ์ลบข้อความ
             print(f"Error: Bot lacks permission to delete messages in channel {message.channel.id}.")
         except Exception as e:
-            # ข้อผิดพลาดอื่นๆ
             print(f"An unexpected error occurred while deleting message: {e}")
             
 # --- 5. Main Execution ---
