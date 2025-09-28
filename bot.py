@@ -3,44 +3,54 @@ from discord.ext import commands
 import requests
 import re
 import os
+import threading
+from flask import Flask # นำเข้า Flask
+
+# --- Flask Keep-Alive Setup ---
+# สร้าง Flask App เพื่อตอบสนองต่อ Health Check ของ Render
+web_app = Flask('') 
+
+@web_app.route('/')
+def home():
+    """หน้า Home สำหรับ Health Check ของ Render"""
+    return "Discord Bot is running and ready to serve!"
+
+def run_web_server():
+    """รัน Web Server ใน Thread แยก"""
+    # Render มักจะใช้ Environment Variable ในการกำหนด Port ที่ต้อง Listen
+    port = int(os.environ.get("PORT", 8080))
+    web_app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    """เริ่ม Thread สำหรับ Web Server"""
+    t = threading.Thread(target=run_web_server)
+    t.start()
 
 # --- Configuration ---
-# แนะนำให้ใช้ Environment Variable ในการเก็บ Token เมื่อรันบน Render
-# หากทดสอบในเครื่อง ให้แทนที่ด้วย Token จริง
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
-# กำหนด ID ห้องที่อนุญาตให้บอททำงาน (ถ้ามีหลายห้องให้ใส่เป็น list)
+# กำหนด ID ห้องที่อนุญาตให้บอททำงาน
+# หากต้องการรันบอทในทุกห้อง ให้ตั้งค่าเป็น None หรือลบเงื่อนไขนี้ออก
 ALLOWED_CHANNEL_ID = 1098314625646329966  # เปลี่ยนเป็น ID ช่องจริงของคุณ
 
-# URL สำหรับตรวจสอบสถานะไฟล์บนเซิร์ฟเวอร์ของคุณ
+# URL สำหรับตรวจสอบสถานะไฟล์
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/" 
-# Steam API endpoint (เราใช้ Steam Store API ที่ไม่ต้องใช้ Key)
 STEAM_API_URL = "https://store.steampowered.com/api/appdetails?appids="
 
-# ตั้งค่า Intents ที่จำเป็นสำหรับการทำงาน (ต้องเปิดในหน้า Developer Portal)
-# - messages: สำหรับอ่านข้อความ
-# - members (ถ้าต้องการใช้): สำหรับการลบข้อความ (บางครั้งต้องการ Member Intents)
 intents = discord.Intents.default()
 intents.messages = True
-intents.message_content = True # ต้องเปิดเพื่ออ่านเนื้อหาข้อความ
+intents.message_content = True
 intents.guilds = True
 
-# สร้าง Client
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# --- Helper Functions ---
-
+# --- Helper Functions (เหมือนเดิม) ---
 def extract_app_id(message_content):
     """ดึง App ID จากข้อความที่ป้อน (เลขล้วน หรือ URL Steam/SteamDB)"""
-    
-    # 1. ตรวจสอบว่าเป็นตัวเลขล้วน (App ID)
     if message_content.isdigit():
         return message_content
-    
-    # 2. ตรวจสอบว่าเป็น Steam/SteamDB URL
     match = re.search(r'(?:steamdb\.info\/app\/|store\.steampowered\.com\/app\/)(\d+)', message_content)
     if match:
         return match.group(1)
-        
     return None
 
 def get_steam_info(app_id):
@@ -55,8 +65,6 @@ def get_steam_info(app_id):
             details = data[app_id]['data']
             name = details.get('name', 'N/A')
             header_image = details.get('header_image', 'N/A')
-            
-            # นับจำนวน DLCs (ถ้ามี)
             dlc_count = len(details.get('dlc', []))
             
             return {
@@ -69,35 +77,18 @@ def get_steam_info(app_id):
         return None
 
 def check_file_status(app_id):
-    """
-    ตรวจสอบสถานะของ URL จากเซิร์ฟเวอร์ devg0d
-    ถ้าสถานะเป็น 302 (Redirect) จะตามไปหา URL ปลายทาง (200 OK)
-    และส่ง URL 200 นั้นกลับมา
-    """
+    """ตรวจสอบสถานะของ URL จากเซิร์ฟเวอร์ devg0d และตามหา URL 200 OK"""
     check_url = f"{DEVGOD_BASE_URL}{app_id}"
     
     try:
-        # ใช้ requests.head เพื่อให้เร็วกว่า แต่ต้องตั้งค่า allow_redirects=False เพื่อให้ตรวจสอบ 302 ได้
-        # หรือใช้ requests.get และตรวจสอบ history (วิธีนี้ชัวร์กว่าสำหรับกรณีที่มี redirect ซ้อน)
+        # requests จะตาม Redirect ให้อัตโนมัติและ response.url จะเป็น URL ปลายทาง 200 OK
         response = requests.get(check_url, allow_redirects=True, timeout=10)
         
-        # ตรวจสอบสถานะการตอบกลับ
-        if response.status_code == 200:
-            # ถ้าสถานะ 200 แสดงว่า URL ปลายทางอยู่ที่นี่
-            # ถ้ามีการ Redirect เกิดขึ้น response.url คือ URL ปลายทาง 200 OK
-            if response.history:
-                return response.url
-            else:
-                # กรณีที่ไม่เกิดการ Redirect (เช่น App ID ใช้งานไม่ได้)
-                return None 
+        if response.status_code == 200 and response.history:
+            # ตรวจสอบว่ามีการ Redirect เกิดขึ้น (response.history) และสถานะสุดท้ายคือ 200
+            return response.url
         
-        elif response.status_code == 302 and response.headers.get('Location'):
-            # (กรณีนี้ไม่น่าเกิดเพราะ allow_redirects=True แต่เผื่อไว้)
-            # ถ้าเป็น 302 และไม่มีการตาม Redirect ให้ตามไปเอง
-            final_response = requests.get(response.headers['Location'], timeout=10)
-            if final_response.status_code == 200:
-                return final_response.url
-
+        # ถ้าไม่มีการ Redirect หรือสถานะไม่เป็น 200 ถือว่าไม่พบลิงก์ที่ถูกต้อง
         return None
 
     except requests.exceptions.RequestException:
@@ -108,38 +99,28 @@ def check_file_status(app_id):
 
 @bot.event
 async def on_ready():
-    """แจ้งเมื่อบอทพร้อมใช้งาน"""
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('Bot is ready!')
 
 @bot.event
 async def on_message(message):
-    """จัดการข้อความที่เข้ามาในช่องที่กำหนด"""
-    
-    # ไม่ต้องประมวลผลข้อความของบอทเอง
     if message.author.bot:
         return
 
-    # ตรวจสอบว่าข้อความมาจากช่องที่อนุญาตหรือไม่
-    # ถ้า ALLOWED_CHANNEL_ID เป็นตัวเลขเดียว:
-    if message.channel.id != ALLOWED_CHANNEL_ID:
+    # ตรวจสอบ Channel ID (รองรับการตั้งค่าเป็น None ในอนาคตได้)
+    if ALLOWED_CHANNEL_ID and message.channel.id != ALLOWED_CHANNEL_ID:
         return
 
-    # 1. พยายามดึง App ID จากข้อความ
     app_id = extract_app_id(message.content)
 
     if app_id:
         # --- ประมวลผลคำสั่งที่ถูกต้อง ---
-        
-        # ดึงข้อมูลเกม Steam
         steam_data = get_steam_info(app_id)
-        
-        # ตรวจสอบสถานะไฟล์จากเซิร์ฟเวอร์ devg0d
         file_url_200 = check_file_status(app_id)
         
         embed = discord.Embed(
             title=f"🔎 ข้อมูล Steam App ID: {app_id}",
-            color=0x1b2838 # สี Steam Dark Blue
+            color=0x1b2838 
         )
         
         if steam_data:
@@ -169,19 +150,23 @@ async def on_message(message):
     else:
         # --- ลบข้อความที่ไม่เกี่ยวข้อง ---
         try:
-            # ลบข้อความถ้าข้อความนั้นไม่ใช่ App ID หรือ URL ที่ถูกต้อง
             await message.delete()
             print(f"Deleted message from {message.author}: '{message.content}'")
         except discord.Forbidden:
-            # จัดการข้อผิดพลาดถ้าบอทไม่มีสิทธิ์ลบ
-            print(f"Error: Bot does not have permission to delete messages in channel {message.channel.id}.")
+            print(f"Error: Bot does not have permission to delete messages in channel {message.channel.id}. Check bot permissions.")
         except Exception as e:
             print(f"An unexpected error occurred while deleting message: {e}")
             
-# รันบอท (ใช้ Token จาก Environment Variable)
-try:
-    bot.run(DISCORD_BOT_TOKEN)
-except discord.errors.LoginFailure:
-    print("FATAL ERROR: Invalid Discord Bot Token. Please check your DISCORD_BOT_TOKEN.")
-except Exception as e:
-    print(f"An error occurred while running the bot: {e}")
+# --- Main Execution ---
+
+if __name__ == '__main__':
+    # 1. เริ่ม Web Server Keep-Alive ใน Thread แยก
+    keep_alive() 
+
+    # 2. รัน Discord Bot ใน Main Thread
+    try:
+        bot.run(DISCORD_BOT_TOKEN)
+    except discord.errors.LoginFailure:
+        print("FATAL ERROR: Invalid Discord Bot Token. Please check your DISCORD_BOT_TOKEN.")
+    except Exception as e:
+        print(f"An error occurred while running the bot: {e}")
