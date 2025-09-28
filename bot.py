@@ -52,7 +52,7 @@ def extract_app_id(message_content):
     """ดึง App ID จากข้อความที่ป้อน (เลขล้วน หรือ URL Steam/SteamDB)"""
     if message_content.isdigit():
         return message_content
-    # Regex เพื่อจับเลข App ID จาก URL ทั้ง SteamDB และ Steam Store
+    # --- แก้ไข: ใช้ argument 'message_content' แทน 'message.content' เพื่อแก้ NameError/Scope Issue ---
     match = re.search(r'(?:steamdb\.info\/app\/|store\.steampowered\.com\/app\/)(\d+)', message_content)
     if match:
         return match.group(1)
@@ -62,7 +62,9 @@ def get_steam_info(app_id):
     """ดึงข้อมูลเกมและนับ DLCs จาก SteamCMD API"""
     try:
         url = f"{STEAMCMD_API_URL}{app_id}"
-        response = requests.get(url, timeout=7)
+        # เพิ่ม User-Agent เพื่อทำตัวเหมือน Browser
+        headers = {'User-Agent': 'DiscordBot-SteamInfo/1.0'}
+        response = requests.get(url, headers=headers, timeout=7)
         response.raise_for_status()
         data = response.json()
         
@@ -97,21 +99,30 @@ def get_steam_info(app_id):
 def check_file_status(app_id):
     """
     ตรวจสอบสถานะของ URL จากเซิร์ฟเวอร์ devg0d และตามหา URL ที่ให้สถานะ 200 OK
+    คืนค่า URL ปลายทางสุดท้าย (200 OK) หรือ None
     """
     check_url = f"{DEVGOD_BASE_URL}{app_id}"
     
     try:
+        # เพิ่ม User-Agent เพื่อทำตัวเหมือน Browser
+        headers = {'User-Agent': 'DiscordBot-Downloader/1.0'}
         # requests.get พร้อม allow_redirects=True จะติดตาม 302 ไปจนเจอ URL สุดท้าย
-        response = requests.get(check_url, allow_redirects=True, timeout=10)
+        response = requests.get(check_url, headers=headers, allow_redirects=True, timeout=10)
         
         # คืนค่า URL ปลายทางสุดท้าย (response.url) ก็ต่อเมื่อสถานะสุดท้ายคือ 200 OK
         if response.status_code == 200:
             return response.url
         
-        return None # ถ้าสถานะไม่เป็น 200 ให้คืนค่า None
+        # --- ปรับปรุงการ Log เพื่อการ Debug บน Render ---
+        print(f"--- File Status Check Failed for App ID: {app_id} ---")
+        print(f"Final Status Code Received: {response.status_code}")
+        print(f"Final URL Reached: {response.url}")
+        print("-----------------------------------------------------")
+        # ----------------------------------------------------
+        return None
 
     except requests.exceptions.RequestException as e:
-        print(f"Error checking file status: {e}")
+        print(f"Error checking file status for {app_id}: {e}")
         return None
 
 
@@ -129,6 +140,13 @@ async def on_message(message):
 
     # ตรวจสอบ Channel ID
     if ALLOWED_CHANNEL_ID and message.channel.id != ALLOWED_CHANNEL_ID:
+        # ลบข้อความที่ไม่เกี่ยวข้องในช่องอื่น (เพิ่มมาจากการแก้ไขครั้งก่อน)
+        try:
+            await message.delete()
+        except discord.Forbidden:
+            print(f"Error: Bot lacks permission to delete messages in channel {message.channel.id}.")
+        except Exception as e:
+            print(f"An unexpected error occurred while deleting message in wrong channel: {e}")
         return
 
     app_id = extract_app_id(message.content)
@@ -158,20 +176,37 @@ async def on_message(message):
         else:
             embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
             
-        # ลิงก์ดาวน์โหลด (เฉพาะถ้าได้สถานะ 200 OK)
+        # --- การแสดงผลลิงก์ดาวน์โหลดที่ปรับปรุงใหม่ ---
         if file_url_200:
-            # แสดงผลเป็น Markdown Link ตามที่ร้องขอ
+            # สถานะ 200 OK: แสดงลิงก์ Markdown
             embed.add_field(
-                name="🔗 ลิงก์ดาวน์โหลด", 
+                name="🔗 ลิงก์ดาวน์โหลด (พร้อม)", 
                 value=f"[**ดาวน์โหลด↗**]({file_url_200})", 
                 inline=False
             )
-        # ถ้าไม่พบไฟล์ที่ 200 OK จะไม่แสดง Field ลิงก์นี้เลย
+        else:
+            # สถานะอื่นที่ไม่ใช่ 200 OK: แสดงข้อความแจ้ง
+            # **สำคัญ:** เราทราบว่าใน Browser ได้ 200 OK แต่ในบอทไม่ได้
+            # การเพิ่ม Log ใน check_file_status จะช่วยให้เราเห็น Status Code ที่บอทได้รับ
+            embed.add_field(
+                name="🔗 ลิงก์ดาวน์โหลด (สถานะ)", 
+                value="**ไม่พบ URL ปลายทางสถานะ 200 OK** (โปรดตรวจสอบ Log ของ Render)", 
+                inline=False
+            )
+        # ---------------------------------------------
+        
+        # ลบข้อความคำสั่งของผู้ใช้
+        try:
+            await message.delete()
+        except discord.Forbidden:
+            print(f"Error: Bot lacks permission to delete message after processing in channel {message.channel.id}.")
+        except Exception as e:
+            print(f"An unexpected error occurred while deleting message after processing: {e}")
         
         await message.channel.send(embed=embed)
         
     else:
-        # --- ลบข้อความที่ไม่เกี่ยวข้อง ---
+        # --- ลบข้อความที่ไม่เกี่ยวข้อง (ไม่เป็น App ID) ---
         try:
             await message.delete()
         except discord.Forbidden:
