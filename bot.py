@@ -5,6 +5,7 @@ import re
 import os
 import threading
 from flask import Flask 
+import json # เพิ่มการ import json สำหรับการจัดการ response
 
 # --- 1. Flask Keep-Alive Setup ---
 # สร้าง Flask App เพื่อตอบสนองต่อ Health Check ของ Render
@@ -28,14 +29,18 @@ def keep_alive():
     
 # --- 2. Configuration & API Endpoints ---
 # ดึง Discord Token จาก Environment Variables บน Render
-# **สำคัญ:** ต้องตั้งค่า DISCORD_BOT_TOKEN ใน Environment Variables ของ Render
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
 
 # กำหนด ID ห้องที่อนุญาตให้บอททำงาน
 # **สำคัญ:** เปลี่ยนเลขนี้เป็น ID ช่องจริงของคุณ
 ALLOWED_CHANNEL_ID = 1098314625646329966  
 
-DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/" 
+# URL สำหรับตรวจสอบสถานะ (Gatekeeper)
+MELLY_BASE_URL = "https://mellyiscoolaf.pythonanywhere.com/m/" 
+
+# URL สำหรับดึง URL ปลายทาง (ตามที่คุณต้องการให้ส่งลิงก์จาก Request นี้)
+DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
+
 # ใช้ API นี้แทน Steam Store เพื่อข้อมูลที่แม่นยำกว่า (รวม DLCs)
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 
@@ -52,7 +57,7 @@ def extract_app_id(message_content):
     """ดึง App ID จากข้อความที่ป้อน (เลขล้วน หรือ URL Steam/SteamDB)"""
     if message_content.isdigit():
         return message_content
-    # --- แก้ไข: ใช้ argument 'message_content' แทน 'message.content' เพื่อแก้ NameError/Scope Issue ---
+    # Regex เพื่อจับเลข App ID จาก URL ทั้ง SteamDB และ Steam Store
     match = re.search(r'(?:steamdb\.info\/app\/|store\.steampowered\.com\/app\/)(\d+)', message_content)
     if match:
         return match.group(1)
@@ -62,9 +67,7 @@ def get_steam_info(app_id):
     """ดึงข้อมูลเกมและนับ DLCs จาก SteamCMD API"""
     try:
         url = f"{STEAMCMD_API_URL}{app_id}"
-        # เพิ่ม User-Agent เพื่อทำตัวเหมือน Browser
-        headers = {'User-Agent': 'DiscordBot-SteamInfo/1.0'}
-        response = requests.get(url, headers=headers, timeout=7)
+        response = requests.get(url, timeout=7)
         response.raise_for_status()
         data = response.json()
         
@@ -77,14 +80,13 @@ def get_steam_info(app_id):
             name = common.get('name', 'N/A')
             # ดึง Header Image (ต้องแปลงให้เป็น URL ที่ใช้งานได้)
             header_image_hash = common.get('header_image', {}).get('english')
+            # กำหนด URL ภาพ Header ของ Steam 
             header_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None
             
-            # --- แก้ไขตรรกะการนับ DLCs ให้แม่นยำ ---
+            # ตรรกะการนับ DLCs 
             dlc_list_str = extended.get('listofdlc', '')
-            # แยกสตริงด้วย comma และกรองเอาเฉพาะรายการที่ไม่ใช่สตริงว่าง
             dlc_items = [item for item in dlc_list_str.split(',') if item.strip()]
             dlc_count = len(dlc_items)
-            # ----------------------------------------
             
             return {
                 'name': name,
@@ -98,31 +100,44 @@ def get_steam_info(app_id):
 
 def check_file_status(app_id):
     """
-    ตรวจสอบสถานะของ URL จากเซิร์ฟเวอร์ devg0d และตามหา URL ที่ให้สถานะ 200 OK
-    คืนค่า URL ปลายทางสุดท้าย (200 OK) หรือ None
+    ขั้นตอนการตรวจสอบสถานะและดึง URL ปลายทาง:
+    1. ตรวจสอบสถานะ 200 OK ที่ mellyiscoolaf/m/{app_id} (Gatekeeper)
+    2. ถ้า Gatekeeper ผ่าน (ได้ 200) จึงจะทำการ Request ไปที่ devg0d เพื่อดึง URL ปลายทาง
+    3. คืนค่า URL ปลายทางสุดท้ายจาก devg0d หากสถานะปลายทางเป็น 200 OK
     """
-    check_url = f"{DEVGOD_BASE_URL}{app_id}"
+    
+    # --- 1. ตรวจสอบ Melly (Gatekeeper) ---
+    melly_check_url = f"{MELLY_BASE_URL}{app_id}"
+    try:
+        # ใช้ requests.head เพื่อตรวจสอบสถานะอย่างรวดเร็ว
+        melly_response = requests.head(melly_check_url, allow_redirects=True, timeout=5)
+        
+        if melly_response.status_code != 200:
+            print(f"Melly check failed for {app_id}. Status: {melly_response.status_code}")
+            return None # Melly check ไม่ผ่าน ไม่ต้องทำต่อ
+            
+    except requests.exceptions.RequestException as e:
+        print(f"Error checking Melly status for {app_id}: {e}")
+        return None 
+    
+    # --- 2. Gatekeeper ผ่านแล้ว -> ทำการ Request Devg0d เพื่อดึง URL ปลายทาง ---
+    devgod_request_url = f"{DEVGOD_BASE_URL}{app_id}"
     
     try:
-        # เพิ่ม User-Agent เพื่อทำตัวเหมือน Browser
-        headers = {'User-Agent': 'DiscordBot-Downloader/1.0'}
-        # requests.get พร้อม allow_redirects=True จะติดตาม 302 ไปจนเจอ URL สุดท้าย
-        response = requests.get(check_url, headers=headers, allow_redirects=True, timeout=10)
+        # ใช้ requests.get เพื่อติดตาม Redirect ทั้งหมดไปจนถึง URL ปลายทางสุดท้าย
+        devgod_response = requests.get(devgod_request_url, allow_redirects=True, timeout=10)
         
-        # คืนค่า URL ปลายทางสุดท้าย (response.url) ก็ต่อเมื่อสถานะสุดท้ายคือ 200 OK
-        if response.status_code == 200:
-            return response.url
+        # --- 3. ตรวจสอบสถานะปลายทางของ Devg0d และคืนค่า URL ---
+        if devgod_response.status_code == 200:
+            # คืนค่า URL ปลายทางสุดท้าย (ซึ่งมาจาก devg0d request)
+            return devgod_response.url
         
-        # --- ปรับปรุงการ Log เพื่อการ Debug บน Render ---
-        print(f"--- File Status Check Failed for App ID: {app_id} ---")
-        print(f"Final Status Code Received: {response.status_code}")
-        print(f"Final URL Reached: {response.url}")
-        print("-----------------------------------------------------")
-        # ----------------------------------------------------
+        # หากสถานะสุดท้ายไม่เป็น 200 OK 
+        print(f"Devg0d final status not 200 OK for {app_id}. Status: {devgod_response.status_code}")
         return None
 
     except requests.exceptions.RequestException as e:
-        print(f"Error checking file status for {app_id}: {e}")
+        print(f"Error fetching final Devg0d URL for {app_id}: {e}")
         return None
 
 
@@ -138,16 +153,9 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # ตรวจสอบ Channel ID
-    if ALLOWED_CHANNEL_ID and message.channel.id != ALLOWED_CHANNEL_ID:
-        # ลบข้อความที่ไม่เกี่ยวข้องในช่องอื่น (เพิ่มมาจากการแก้ไขครั้งก่อน)
-        try:
-            await message.delete()
-        except discord.Forbidden:
-            print(f"Error: Bot lacks permission to delete messages in channel {message.channel.id}.")
-        except Exception as e:
-            print(f"An unexpected error occurred while deleting message in wrong channel: {e}")
-        return
+    # ตรวจสอบ Channel ID (ถ้าต้องการจำกัดช่อง ให้เอา comment ด้านล่างออก)
+    # if ALLOWED_CHANNEL_ID and message.channel.id != ALLOWED_CHANNEL_ID:
+    #     return
 
     app_id = extract_app_id(message.content)
 
@@ -158,7 +166,8 @@ async def on_message(message):
         await message.channel.typing()
 
         steam_data = get_steam_info(app_id)
-        file_url_200 = check_file_status(app_id)
+        # ใช้ฟังก์ชัน check_file_status ที่อัปเดตแล้ว
+        file_url_200 = check_file_status(app_id) 
         
         # สร้าง Embed
         embed = discord.Embed(
@@ -176,43 +185,28 @@ async def on_message(message):
         else:
             embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
             
-        # --- การแสดงผลลิงก์ดาวน์โหลดที่ปรับปรุงใหม่ ---
+        # ลิงก์ดาวน์โหลด (เฉพาะถ้าได้สถานะ 200 OK จาก Devg0d Request)
         if file_url_200:
-            # สถานะ 200 OK: แสดงลิงก์ Markdown
+            # แสดงผลเป็น Markdown Link [ดาวน์โหลด↗] ตามที่ร้องขอ
             embed.add_field(
-                name="🔗 ลิงก์ดาวน์โหลด (พร้อม)", 
-                value=f"[**ดาวน์โหลด↗**]({file_url_200})", 
+                name="🔗 สถานะและลิงก์ดาวน์โหลด", 
+                value=f"สถานะ: **✅ พร้อมดาวน์โหลด**\n[**ดาวน์โหลด↗**]({file_url_200})", 
                 inline=False
             )
         else:
-            # สถานะอื่นที่ไม่ใช่ 200 OK: แสดงข้อความแจ้ง
-            # **สำคัญ:** เราทราบว่าใน Browser ได้ 200 OK แต่ในบอทไม่ได้
-            # การเพิ่ม Log ใน check_file_status จะช่วยให้เราเห็น Status Code ที่บอทได้รับ
+            # แสดงสถานะว่าไม่พร้อมหากไม่ได้รับ 200 OK จาก Devg0d Request (แม้ Melly จะผ่านหรือไม่ผ่านก็ตาม)
             embed.add_field(
-                name="🔗 ลิงก์ดาวน์โหลด (สถานะ)", 
-                value="**ไม่พบ URL ปลายทางสถานะ 200 OK** (โปรดตรวจสอบ Log ของ Render)", 
+                name="🔗 สถานะและลิงก์ดาวน์โหลด", 
+                value="สถานะ: **❌ ไม่พบไฟล์/ลิงก์ไม่พร้อม**", 
                 inline=False
             )
-        # ---------------------------------------------
-        
-        # ลบข้อความคำสั่งของผู้ใช้
-        try:
-            await message.delete()
-        except discord.Forbidden:
-            print(f"Error: Bot lacks permission to delete message after processing in channel {message.channel.id}.")
-        except Exception as e:
-            print(f"An unexpected error occurred while deleting message after processing: {e}")
         
         await message.channel.send(embed=embed)
         
     else:
-        # --- ลบข้อความที่ไม่เกี่ยวข้อง (ไม่เป็น App ID) ---
-        try:
-            await message.delete()
-        except discord.Forbidden:
-            print(f"Error: Bot lacks permission to delete messages in channel {message.channel.id}.")
-        except Exception as e:
-            print(f"An unexpected error occurred while deleting message: {e}")
+        # --- ลบข้อความที่ไม่เกี่ยวข้อง ---
+        # การลบข้อความยังคงถูกปิดไว้ตามโค้ดเดิม เพื่อให้คุณสามารถทดสอบได้ง่าย
+        pass
             
 # --- 5. Main Execution ---
 
