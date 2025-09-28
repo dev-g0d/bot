@@ -16,25 +16,25 @@ def home():
     return "Discord Bot is running and ready to serve!"
 
 def run_web_server():
-    """รัน Web Server ใน Thread แยก"""
+    """รัน Web Server ใน Thread แยก โดยใช้ use_reloader=False เพื่อป้องกัน KeyError"""
     # ดึงค่า PORT จาก Environment Variable ของ Render (ถ้ามี) หรือใช้ 8080 เป็นค่า default
     port = int(os.environ.get("PORT", 8080))
-    # ปิดการแสดง log ของ Flask เพื่อให้ log ของ Discord Bot ดูง่ายขึ้น
-    os.environ['WERKZEUG_RUN_MAIN'] = 'true'
-    web_app.run(host='0.0.0.0', port=port)
+    # สำคัญ: ต้องใส่ use_reloader=False และ debug=False เพื่อป้องกันการ Fork Process ที่ทำให้เกิด KeyError
+    web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def keep_alive():
     """เริ่ม Thread สำหรับ Web Server เพื่อป้องกันไม่ให้ Render ปิด Worker"""
     t = threading.Thread(target=run_web_server)
     t.start()
-
+    
 # --- 2. Configuration ---
 # ดึง Discord Token จาก Environment Variables บน Render
+# **สำคัญ:** ต้องตั้งค่า DISCORD_BOT_TOKEN ใน Environment Variables ของ Render
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
 
 # กำหนด ID ห้องที่อนุญาตให้บอททำงาน
-# คุณสามารถตั้งค่าตัวเลข ID ห้องของคุณตรงนี้โดยตรง หรือเปลี่ยนไปดึงจาก Environment Variable ก็ได้
-ALLOWED_CHANNEL_ID = 1098314625646329966  # <<<--- เปลี่ยนเป็น ID ช่องจริงของคุณ
+# **สำคัญ:** เปลี่ยนเลขนี้เป็น ID ช่องจริงของคุณ
+ALLOWED_CHANNEL_ID = 1098314625646329966  
 
 # URL สำหรับตรวจสอบสถานะไฟล์บนเซิร์ฟเวอร์ devg0d
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/" 
@@ -43,9 +43,9 @@ STEAM_API_URL = "https://store.steampowered.com/api/appdetails?appids="
 # ตั้งค่า Intents ที่จำเป็น
 intents = discord.Intents.default()
 intents.messages = True
-intents.message_content = True # ต้องเปิดใน Developer Portal
+intents.message_content = True # ต้องเปิดใน Developer Portal (เจตนาของเนื้อหาข้อความ)
 intents.guilds = True
-# intents.members = True # ถูกรวมอยู่ใน intents.default() และมีการเปิดใน Developer Portal แล้ว
+# intents.members = True ถูกเปิดใน Discord Developer Portal (ความตั้งใจของสมาชิกเซิร์ฟเวอร์) แล้ว
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -72,6 +72,7 @@ def get_steam_info(app_id):
             details = data[app_id]['data']
             name = details.get('name', 'N/A')
             header_image = details.get('header_image', 'N/A')
+            # นับจำนวน DLCs
             dlc_count = len(details.get('dlc', []))
             
             return {
@@ -90,26 +91,22 @@ def check_file_status(app_id):
     check_url = f"{DEVGOD_BASE_URL}{app_id}"
     
     try:
-        # ใช้ requests.get() เพื่อให้ติดตาม Redirect โดยอัตโนมัติ
+        # requests.get พร้อม allow_redirects=True จะติดตาม 302 ไปจนเจอ URL 200 สุดท้าย
         response = requests.get(check_url, allow_redirects=True, timeout=10)
         
         # ตรวจสอบสถานะการตอบกลับสุดท้าย
         if response.status_code == 200:
-            # ถ้าสถานะสุดท้ายเป็น 200 (ซึ่ง requests จัดการ Redirect ให้แล้ว)
-            # เราใช้ response.url ซึ่งคือ URL ปลายทางสุดท้าย (ที่เป็น 200)
-            
             # ตรวจสอบว่ามีการ Redirect เกิดขึ้นหรือไม่ (เพื่อให้มั่นใจว่ามันผ่านการขอ token)
+            # ถ้ามี history (Redirect) และสถานะสุดท้ายเป็น 200 ให้ส่ง URL ปลายทาง 200 นั้นกลับไป
             if response.history:
                 return response.url
             else:
-                # ถ้าได้ 200 โดยไม่มี history อาจหมายถึงไม่มีการ Redirect token
-                # เราจะถือว่าไม่พบลิงก์ที่ต้องการ
+                # กรณีที่ได้ 200 โดยไม่มี history อาจหมายถึงไม่มีการ Redirect token
                 return None
         
         return None
 
-    except requests.exceptions.RequestException as e:
-        # print(f"Request error for token: {e}") # สำหรับ debug
+    except requests.exceptions.RequestException:
         return None
 
 
@@ -177,7 +174,8 @@ async def on_message(message):
         try:
             # ลบข้อความที่ไม่ใช่ App ID หรือ URL ที่ถูกต้อง
             await message.delete()
-            print(f"Deleted irrelevant message from {message.author}: '{message.content}'")
+            # พิมพ์ log แจ้งว่าลบข้อความแล้ว
+            # print(f"Deleted irrelevant message from {message.author}: '{message.content}'") 
         except discord.Forbidden:
             # ข้อผิดพลาดเมื่อบอทไม่มีสิทธิ์ลบข้อความ
             print(f"Error: Bot lacks permission to delete messages in channel {message.channel.id}.")
