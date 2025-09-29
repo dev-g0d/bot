@@ -77,18 +77,27 @@ def get_steam_info(app_id):
         return None
 
 def check_file_status(app_id, retries=3, delay=2):
+    import time
     melly_check_url = f"{MELLY_BASE_URL}{app_id}"
-    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/124.0 Safari/537.36"
+    }
+
     for attempt in range(retries):
         try:
-            melly_response = requests.get(melly_check_url, allow_redirects=True, timeout=10)
+            melly_response = requests.get(
+                melly_check_url,
+                headers=headers,
+                allow_redirects=True,
+                timeout=10
+            )
             
             if melly_response.status_code == 200:
-                # เช็คว่ามีไฟล์จริง (Content-Disposition)
                 if "content-disposition" in melly_response.headers:
                     return melly_check_url
 
-            # ถ้ายังไม่เจอ ให้รอแล้วลองใหม่
             if attempt < retries - 1:
                 time.sleep(delay)
         
