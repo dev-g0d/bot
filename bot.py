@@ -7,6 +7,22 @@ import threading
 from flask import Flask 
 import json
 import time
+import datetime # เพิ่ม: สำหรับจัดการวันที่
+import locale   # เพิ่ม: สำหรับตั้งค่าภาษาไทย
+
+# --- ตั้งค่า Locale เป็นภาษาไทย (สำคัญสำหรับการแสดงชื่อเดือน) ---
+# การตั้งค่านี้อาจแตกต่างกันไปตามระบบปฏิบัติการ (Windows, Linux, Mac)
+try:
+    locale.setlocale(locale.LC_ALL, 'th_TH.utf8')
+except locale.Error:
+    try:
+        # ลองใช้โค้ดสำหรับระบบอื่น ๆ หรือ environments ที่รองรับ
+        locale.setlocale(locale.LC_ALL, 'th_TH')
+    except locale.Error:
+        # หากไม่สามารถตั้งค่าภาษาไทยได้จริง ๆ ให้ใช้ภาษาอังกฤษเป็นค่า fallback
+        print("Warning: Could not set Thai locale. Dates will be in English/Default format.")
+        pass
+
 
 # --- 1. Flask Keep-Alive Setup ---
 web_app = Flask('') 
@@ -64,11 +80,26 @@ def get_steam_info(app_id):
             dlc_list_str = extended.get('listofdlc', '')
             dlc_items = [item for item in dlc_list_str.split(',') if item.strip()]
             dlc_count = len(dlc_items)
+
+            # ดึงข้อมูลวันวางจำหน่ายเป็น string ภาษาอังกฤษ
+            release_date_str = common.get('release_date', {}).get('english', 'ไม่ระบุ')
+            
+            release_date_thai = 'ไม่ระบุ'
+            if release_date_str != 'ไม่ระบุ':
+                try:
+                    # พยายามแปลงจากรูปแบบ 'Month DD, YYYY'
+                    release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
+                    # จัดรูปแบบวันที่เป็นภาษาไทย: วันที่(ไม่มี 0 นำหน้า) เดือนเต็ม ปี ค.ศ.
+                    release_date_thai = release_date_obj.strftime('%#d %B %Y')
+                except ValueError:
+                    # ถ้าแปลงไม่ได้ แสดงว่าเป็นวันที่ที่ Steam ระบุเป็นข้อความ (เช่น 'TBA' หรือ 'Q1 2025')
+                    release_date_thai = release_date_str 
             
             return {
                 'name': name,
                 'image': header_image,
                 'dlc_count': dlc_count,
+                'release_date': release_date_thai, # ใช้ค่าวันที่ภาษาไทย
             }
         return None
     except requests.RequestException as e:
@@ -128,8 +159,17 @@ async def on_message(message):
         
         if steam_data:
             embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
+            
+            # เพิ่ม: วันวางจำหน่ายภาษาไทย
+            embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False) 
+            
             embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
-            embed.add_field(name="ลิงก์ Steam Store", value=f"[คลิกที่นี่](https://store.steampowered.com/app/{app_id}/)", inline=True)
+            
+            # แก้ไข: เปลี่ยนเป็น Links และเพิ่ม SteamDB (inline=False)
+            embed.add_field(name="Links", 
+                            value=f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)", 
+                            inline=False)
+            
             if steam_data['image']:
                 embed.set_thumbnail(url=steam_data['image'])
         else:
