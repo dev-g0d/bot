@@ -6,6 +6,7 @@ import os
 import threading
 from flask import Flask 
 import json
+import time
 
 # --- 1. Flask Keep-Alive Setup ---
 web_app = Flask('') 
@@ -75,21 +76,28 @@ def get_steam_info(app_id):
         print(f"Error fetching SteamCMD info for {app_id}: {e}")
         return None
 
-def check_file_status(app_id):
+def check_file_status(app_id, retries=3, delay=2):
     melly_check_url = f"{MELLY_BASE_URL}{app_id}"
-    try:
-        melly_response = requests.get(melly_check_url, allow_redirects=True, timeout=10)
+    
+    for attempt in range(retries):
+        try:
+            melly_response = requests.get(melly_check_url, allow_redirects=True, timeout=10)
+            
+            if melly_response.status_code == 200:
+                # เช็คว่ามีไฟล์จริง (Content-Disposition)
+                if "content-disposition" in melly_response.headers:
+                    return melly_check_url
+
+            # ถ้ายังไม่เจอ ให้รอแล้วลองใหม่
+            if attempt < retries - 1:
+                time.sleep(delay)
         
-        # เช็คว่าได้ 200 และเป็นไฟล์ (มี Content-Disposition)
-        if melly_response.status_code == 200:
-            if "content-disposition" in melly_response.headers:
-                return melly_check_url
-            else:
-                # ถึงจะเป็น 200 แต่ถ้าไม่ใช่ไฟล์ก็ไม่คืนค่า
-                return None
-        return None
-    except requests.exceptions.RequestException:
-        return None
+        except requests.exceptions.RequestException:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            continue
+
+    return None
 
 # --- 4. Discord Events ---
 @bot.event
