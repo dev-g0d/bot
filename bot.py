@@ -98,17 +98,18 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
 def get_steam_info(app_id):
     release_date_thai = fetch_release_date_from_store_api(app_id)
 
-    # --- ดึงข้อมูลจาก Steam Store API เพื่อเอา header_image ด้วย ---
-    store_url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
+    # --- ดึงข้อมูลจาก Steam Store API ---
     header_image_store = None
     try:
+        store_url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
         store_resp = requests.get(store_url, timeout=5)
         store_resp.raise_for_status()
         store_data = store_resp.json()
         if store_data and store_data.get(app_id, {}).get("success") is True:
-            header_image_store = store_data[app_id].get("data", {}).get("header_image")
-    except requests.RequestException:
-        pass
+            store_info = store_data[app_id].get("data", {})
+            header_image_store = store_info.get("header_image")
+    except requests.RequestException as e:
+        print(f"Steam Store fetch error: {e}")
 
     # --- ดึงข้อมูลจาก SteamCMD API ---
     try:
@@ -123,7 +124,7 @@ def get_steam_info(app_id):
 
             name = common.get('name', 'ไม่พบแอป')
 
-            # ใช้ภาพจาก CMD ถ้ามี, ถ้าไม่มีใช้จาก Store
+            # ใช้ภาพจาก Store API โดยตรง (ถ้าไม่มีค่อยใช้ CMD)
             header_image_hash = common.get('header_image', {}).get('english')
             if header_image_hash:
                 header_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}"
@@ -136,14 +137,15 @@ def get_steam_info(app_id):
 
             return {
                 'name': name,
-                'image': header_image,
+                'image': header_image or header_image_store,  # ✅ บังคับ fallback
                 'dlc_count': dlc_count,
                 'release_date': release_date_thai,
             }
         return None
-    except requests.RequestException:
+    except requests.RequestException as e:
+        print(f"SteamCMD fetch error: {e}")
         return None
-
+        
 def check_file_status(app_id: str) -> str | None:
     url = f"{DEVGOD_BASE_URL}{app_id}"
     headers = {"User-Agent": "Mozilla/5.0"}
