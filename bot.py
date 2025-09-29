@@ -82,12 +82,14 @@ def fetch_release_date_from_store_data(store_data: dict) -> str:
     return raw_date
 
 def get_steam_info(app_id):
-    # --- ดึงข้อมูลจาก Steam Store API ก่อน (รวม release_date, name, dlc, header_image) ---
+    # --- ดึงข้อมูลจาก Steam Store API ก่อน (รวม release_date, name, dlc, header_image, drm_notice) ---
     header_image_store = None
     name_store = None
     dlc_count_store = 0
     release_date_thai = 'ไม่ระบุ'
     store_success = False
+    has_denuvo = False
+    drm_notice = ""
 
     try:
         store_url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
@@ -102,13 +104,16 @@ def get_steam_info(app_id):
             dlc_list = store_info.get("dlc", [])
             dlc_count_store = len(dlc_list)
             release_date_thai = fetch_release_date_from_store_data(store_info)
+            drm_notice = store_info.get("drm_notice", "")
+            has_denuvo = "denuvo" in drm_notice.lower()
     except requests.RequestException as e:
         print(f"Steam Store fetch error: {e}")
 
-    # --- ดึงข้อมูลจาก SteamCMD API (สำหรับ fallback ถ้า Store ไม่มี) ---
+    # --- ดึงข้อมูลจาก SteamCMD API (สำหรับ DLC prioritize, name fallback, header fallback) ---
     header_image_hash = None
     dlc_count_cmd = 0
     name_cmd = 'ไม่พบแอป'
+    cmd_success = False
     try:
         url = f"{STEAMCMD_API_URL}{app_id}"
         response = requests.get(url, timeout=7)
@@ -118,6 +123,7 @@ def get_steam_info(app_id):
             app_data = data['data'][app_id]
             common = app_data.get('common', {})
             extended = app_data.get('extended', {})
+            cmd_success = True
 
             name_cmd = common.get('name', 'ไม่พบแอป')
             header_image_hash = common.get('header_image', {}).get('english')
@@ -127,9 +133,9 @@ def get_steam_info(app_id):
     except requests.RequestException as e:
         print(f"SteamCMD fetch error: {e}")
 
-    # --- รวมข้อมูล: prioritize Store ถ้ามี ---
+    # --- รวมข้อมูล: prioritize Store สำหรับส่วนใหญ่ แต่ DLC prioritize CMD ถ้ามี ---
     name = name_store if store_success else name_cmd
-    dlc_count = dlc_count_store if store_success else dlc_count_cmd
+    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store
     header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
 
     if not name:
@@ -140,6 +146,7 @@ def get_steam_info(app_id):
         'image': header_image,
         'dlc_count': dlc_count,
         'release_date': release_date_thai,
+        'has_denuvo': has_denuvo,
     }
         
 def check_file_status(app_id: str) -> str | None:
@@ -181,9 +188,12 @@ async def on_message(message):
             embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
             embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
             embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
+            links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
+            if steam_data['has_denuvo']:
+                links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
             embed.add_field(
                 name="Links", 
-                value=f"[Steam Store](https://store.steam.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)", 
+                value=links_value, 
                 inline=False
             )
             
