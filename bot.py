@@ -46,12 +46,10 @@ def extract_app_id(message_content):
         return match.group(1)
     return None
 
-def fetch_release_date_from_store_api(app_id: str) -> str:
+def fetch_release_date_from_store_data(store_data: dict) -> str:
     """
-    ดึงวันวางจำหน่ายจาก Steam Store API และแปลงเป็นภาษาไทยเต็ม
+    ดึงวันวางจำหน่ายจากข้อมูล Steam Store API และแปลงเป็นภาษาไทยเต็ม
     """
-    url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
-
     en_to_th = {
         "Jan": "มกราคม", "Feb": "กุมภาพันธ์", "Mar": "มีนาคม", "Apr": "เมษายน",
         "May": "พฤษภาคม", "Jun": "มิถุนายน", "Jul": "กรกฎาคม", "Aug": "สิงหาคม",
@@ -64,42 +62,33 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
         "ก.ย.": "กันยายน", "ต.ค.": "ตุลาคม", "พ.ย.": "พฤศจิกายน", "ธ.ค.": "ธันวาคม"
     }
 
+    raw_date = store_data.get('release_date', {}).get('date', 'ไม่ระบุ')
+    if raw_date == 'ไม่ระบุ':
+        return 'ไม่ระบุ'
+
+    # กรณีภาษาไทยย่อ เช่น "28 เม.ย. 2017"
+    for short, full in th_short_to_full.items():
+        if short in raw_date:
+            return raw_date.replace(short, full)
+
+    # กรณีภาษาอังกฤษ เช่น "Apr 27, 2017"
     try:
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-        data = response.json()
+        dt = datetime.datetime.strptime(raw_date, "%b %d, %Y")
+        return f"{dt.day} {en_to_th[dt.strftime('%b')]} {dt.year}"
+    except ValueError:
+        pass
 
-        if data and data.get(app_id, {}).get('success') is True:
-            raw_date = data[app_id].get('data', {}).get('release_date', {}).get('date', 'ไม่ระบุ')
-            if raw_date == 'ไม่ระบุ':
-                return 'ไม่ระบุ'
-
-            # กรณีภาษาไทยย่อ เช่น "28 เม.ย. 2017"
-            for short, full in th_short_to_full.items():
-                if short in raw_date:
-                    return raw_date.replace(short, full)
-
-            # กรณีภาษาอังกฤษ เช่น "Apr 27, 2017"
-            try:
-                dt = datetime.datetime.strptime(raw_date, "%b %d, %Y")
-                return f"{dt.day} {en_to_th[dt.strftime('%b')]} {dt.year}"
-            except ValueError:
-                pass
-
-            # กรณีอื่น ๆ ส่งกลับไปตรง ๆ
-            return raw_date
-
-        return 'ไม่ระบุ'
-
-    except requests.RequestException:
-        return 'ไม่ระบุ'
-
+    # กรณีอื่น ๆ ส่งกลับไปตรง ๆ
+    return raw_date
 
 def get_steam_info(app_id):
-    release_date_thai = fetch_release_date_from_store_api(app_id)
-
-    # --- ดึงข้อมูลจาก Steam Store API ---
+    # --- ดึงข้อมูลจาก Steam Store API ก่อน (รวม release_date, name, dlc, header_image) ---
     header_image_store = None
+    name_store = None
+    dlc_count_store = 0
+    release_date_thai = 'ไม่ระบุ'
+    store_success = False
+
     try:
         store_url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
         store_resp = requests.get(store_url, timeout=5)
@@ -107,11 +96,19 @@ def get_steam_info(app_id):
         store_data = store_resp.json()
         if store_data and store_data.get(app_id, {}).get("success") is True:
             store_info = store_data[app_id].get("data", {})
+            store_success = True
+            name_store = store_info.get("name", 'ไม่พบแอป')
             header_image_store = store_info.get("header_image")
+            dlc_list = store_info.get("dlc", [])
+            dlc_count_store = len(dlc_list)
+            release_date_thai = fetch_release_date_from_store_data(store_info)
     except requests.RequestException as e:
         print(f"Steam Store fetch error: {e}")
 
-    # --- ดึงข้อมูลจาก SteamCMD API ---
+    # --- ดึงข้อมูลจาก SteamCMD API (สำหรับ fallback ถ้า Store ไม่มี) ---
+    header_image_hash = None
+    dlc_count_cmd = 0
+    name_cmd = 'ไม่พบแอป'
     try:
         url = f"{STEAMCMD_API_URL}{app_id}"
         response = requests.get(url, timeout=7)
@@ -122,29 +119,28 @@ def get_steam_info(app_id):
             common = app_data.get('common', {})
             extended = app_data.get('extended', {})
 
-            name = common.get('name', 'ไม่พบแอป')
-
-            # ใช้ภาพจาก Store API โดยตรง (ถ้าไม่มีค่อยใช้ CMD)
+            name_cmd = common.get('name', 'ไม่พบแอป')
             header_image_hash = common.get('header_image', {}).get('english')
-            if header_image_hash:
-                header_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}"
-            else:
-                header_image = header_image_store
-
             dlc_list_str = extended.get('listofdlc', '')
             dlc_items = [item for item in dlc_list_str.split(',') if item.strip()]
-            dlc_count = len(dlc_items)
-
-            return {
-                'name': name,
-                'image': header_image or header_image_store,  # ✅ บังคับ fallback
-                'dlc_count': dlc_count,
-                'release_date': release_date_thai,
-            }
-        return None
+            dlc_count_cmd = len(dlc_items)
     except requests.RequestException as e:
         print(f"SteamCMD fetch error: {e}")
+
+    # --- รวมข้อมูล: prioritize Store ถ้ามี ---
+    name = name_store if store_success else name_cmd
+    dlc_count = dlc_count_store if store_success else dlc_count_cmd
+    header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
+
+    if not name:
         return None
+
+    return {
+        'name': name,
+        'image': header_image,
+        'dlc_count': dlc_count,
+        'release_date': release_date_thai,
+    }
         
 def check_file_status(app_id: str) -> str | None:
     url = f"{DEVGOD_BASE_URL}{app_id}"
