@@ -68,10 +68,16 @@ def extract_app_id(message_content):
 def fetch_release_date_from_store_api(app_id: str) -> str:
     """
     ดึงวันวางจำหน่ายจาก Steam Store API 
-    ใช้ cc=th&l=th เพื่อให้ API คืนค่าเป็นภาษาไทย
+    ใช้ cc=th&l=th เพื่อให้ API คืนค่าเป็นภาษาไทย และแปลงเป็นเดือนเต็ม
     """
-    # ใช้ cc=th&l=th เพื่อให้ API พยายามคืนค่าเป็นภาษาไทย
     url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th" 
+    
+    # กำหนด Map สำหรับแปลงเดือนย่อภาษาไทยเป็นเดือนเต็ม
+    thai_month_map = {
+        "ม.ค.": "มกราคม", "ก.พ.": "กุมภาพันธ์", "มี.ค.": "มีนาคม", "เม.ย.": "เมษายน",
+        "พ.ค.": "พฤษภาคม", "มิ.ย.": "มิถุนายน", "ก.ค.": "กรกฎาคม", "ส.ค.": "สิงหาคม",
+        "ก.ย.": "กันยายน", "ต.ค.": "ตุลาคม", "พ.ย.": "พฤศจิกายน", "ธ.ค.": "ธันวาคม"
+    }
     
     try:
         response = requests.get(url, timeout=5)
@@ -85,12 +91,9 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
             if release_date_str == 'ไม่ระบุ':
                 return 'ไม่ระบุ'
 
-            # พยายามแปลงเฉพาะเมื่อวันที่มาในรูปแบบภาษาอังกฤษ (Month Day, Year) 
-            # ถ้าเป็นภาษาไทยอยู่แล้ว (เช่น 28 เม.ย. 2017) จะเกิด ValueError และจะคืนค่า string เดิม
+            # 1. พยายามแปลงวันที่ที่มาในรูปแบบภาษาอังกฤษ (Apr 28, 2017)
             try:
-                # บันทึก locale เดิม และตั้ง locale ชั่วคราวเป็นอังกฤษเพื่อ parse วันที่ภาษาอังกฤษ
                 original_locale = locale.getlocale(locale.LC_TIME)
-                # ตั้งค่า locale เป็นอังกฤษเพื่อใช้ strptime ในการแปลงวันที่ภาษาอังกฤษ
                 locale.setlocale(locale.LC_TIME, 'en_US.utf8') 
                 
                 release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
@@ -101,20 +104,28 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
                 except:
                     pass
 
-                # ถ้า parse สำเร็จ ให้ format เป็นภาษาไทย (ใช้ global locale ที่ตั้งไว้ด้านบน)
-                # ใช้ %#d สำหรับ Windows หรือ %-d สำหรับ Linux/Mac เพื่อไม่ให้มีเลข 0 นำหน้าวัน
+                # ถ้า parse สำเร็จ ให้ format เป็นภาษาไทยเต็ม (จะได้ "เมษายน" แทน "Apr")
                 return release_date_obj.strftime('%#d %B %Y')
 
             except ValueError:
-                # ถ้า parse ไม่สำเร็จ (เพราะเป็นรูปแบบภาษาไทยอยู่แล้ว หรือรูปแบบอื่น)
-                # ให้คืนค่า string เดิมที่ได้จาก API (ซึ่งควรเป็นภาษาไทย)
+                # 2. ถ้า parse ไม่สำเร็จ (เพราะเป็นรูปแบบภาษาไทยย่อ เช่น "28 เม.ย. 2017") หรือรูปแบบอื่น
+                # คืนค่า locale เดิม
                 try:
                     locale.setlocale(locale.LC_TIME, original_locale[0] or 'th_TH.utf8')
                 except:
                     pass
-                return release_date_str
+
+                # ทำการแปลงเดือนย่อภาษาไทยให้เป็นเดือนเต็ม
+                final_date_str = release_date_str
+                for short, long in thai_month_map.items():
+                    if short in final_date_str:
+                        final_date_str = final_date_str.replace(short, long)
+                        break # พบแล้วออกจากลูป
+                
+                return final_date_str
+            
             except locale.Error:
-                # กรณีตั้งค่า locale ชั่วคราวไม่ได้ ให้ลอง parse ด้วย C locale
+                # 3. จัดการกรณีที่ตั้งค่า locale ไม่ได้
                 try:
                     locale.setlocale(locale.LC_TIME, 'C')
                     release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
@@ -126,8 +137,13 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
                         pass
                     return release_date_obj.strftime('%#d %B %Y')
                 except ValueError:
-                     # ถ้า parse ไม่ได้ ก็คืนค่า string เดิม
-                     return release_date_str
+                     # ถ้า parse ไม่ได้ ก็คืนค่า string เดิมและแปลงเดือนย่อเป็นเต็ม
+                    final_date_str = release_date_str
+                    for short, long in thai_month_map.items():
+                        if short in final_date_str:
+                            final_date_str = final_date_str.replace(short, long)
+                            break
+                    return final_date_str
             
         return 'ไม่ระบุ'
 
