@@ -36,7 +36,7 @@ DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ALLOWED_CHANNEL_ID = 1098314625646329966  
 
 # URL สำหรับตรวจสอบสถานะ (Gatekeeper)
-MELLY_BASE_URL = "https://mellyiscoolaf.pythonanywhere.com/m/" 
+MELLY_BASE_URL = "https://mellyiscoolaf.pythonanywhere.com/" 
 
 # URL สำหรับดึง URL ปลายทาง (ตามที่คุณต้องการให้ส่งลิงก์จาก Request นี้)
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
