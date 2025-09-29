@@ -76,30 +76,32 @@ def get_steam_info(app_id):
         return None
 
 def check_file_status(app_id):
+    # --- STEP 1: เช็ค Melly ---
     melly_check_url = f"{MELLY_BASE_URL}{app_id}"
     try:
-        melly_response = requests.get(melly_check_url, allow_redirects=True, timeout=7)
+        melly_response = requests.get(melly_check_url, allow_redirects=False, timeout=7)
         if melly_response.status_code != 200:
-            print(f"Melly check failed for {app_id}. Status: {melly_response.status_code}")
+            print(f"[Melly] {app_id} not ready. Status {melly_response.status_code}")
             return None
     except requests.exceptions.RequestException as e:
-        print(f"Error checking Melly status for {app_id}: {e}")
-        return None 
-    
+        print(f"[Melly] Error: {e}")
+        return None
+
+    # --- STEP 2: ถ้า Melly ผ่านแน่นอนว่า Devg0d จะ 200 ---
     devgod_request_url = f"{DEVGOD_BASE_URL}{app_id}"
     try:
         devgod_response = requests.get(devgod_request_url, allow_redirects=True, timeout=10)
         final_url = devgod_response.url
         final_status = devgod_response.status_code
-        
-        print(f"Final URL: {final_url}, Status: {final_status}")  # Debug log
-        
-        # ยืดหยุ่นขึ้น: แค่เจอ URL ที่ไม่ใช่ /app_request ก็ถือว่าโอเค
+
+        print(f"[Devg0d] Final URL: {final_url}, Status: {final_status}")
+
+        # ถ้า Melly ผ่าน final_url ต้องใช้ได้แน่นอน
         if "/app/" in final_url:
             return final_url
         return None
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching final Devg0d URL for {app_id}: {e}")
+        print(f"[Devg0d] Error: {e}")
         return None
 
 # --- 4. Discord Events ---
@@ -148,9 +150,6 @@ async def on_message(message):
             )
         
         await message.channel.send(embed=embed)
-
-    # สำคัญ: ให้ bot จัดการ command ต่อ
-    await bot.process_commands(message)
 
 # --- 5. Main Execution ---
 if __name__ == '__main__':
