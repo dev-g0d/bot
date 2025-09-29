@@ -26,7 +26,6 @@ def keep_alive():
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
 ALLOWED_CHANNEL_ID = 1098314625646329966  
-MELLY_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 
@@ -83,7 +82,7 @@ def check_file_status(app_id: str) -> str | None:
     ถ้า final response = 200 และมี content-disposition -> return URL
     ถ้าไม่ใช่ -> return None
     """
-    url = f"{MELLY_BASE_URL}{app_id}"
+    url = f"{DEVGOD_BASE_URL}{app_id}"
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -138,14 +137,14 @@ async def on_message(message):
             
         if file_url_200:
             embed.add_field(
-                name="🔗 สถานะและลิงก์ดาวน์โหลด", 
-                value=f"สถานะ: **✅ พร้อมดาวน์โหลด**\n[**ดาวน์โหลด↗**]({file_url_200})", 
+                name="📦 สถานะ:", 
+                value=f"**✅ พร้อมดาวน์โหลด**\n[**ดาวน์โหลด↗**]({file_url_200})", 
                 inline=False
             )
         else:
             embed.add_field(
-                name="🔗 สถานะและลิงก์ดาวน์โหลด", 
-                value="สถานะ: **❌ ไม่พบไฟล์/ลิงก์ไม่พร้อม**", 
+                name="📦 สถานะ:", 
+                value="**❌ ไม่พบไฟล์**", 
                 inline=False
             )
         
