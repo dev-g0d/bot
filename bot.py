@@ -163,13 +163,14 @@ async def on_message(message):
         
         if steam_data:
             embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
-            embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False) 
             embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
+            embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
             embed.add_field(
                 name="Links", 
                 value=f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)", 
                 inline=False
             )
+            
             if steam_data['image']:
                 embed.set_image(url=steam_data['image'])
         else:
@@ -177,8 +178,8 @@ async def on_message(message):
             
         if file_url_200:
             embed.add_field(
-                name="📦 สถานะ: ✅ พร้อมดาวน์โหลด", 
-                value=f"[**ดาวน์โหลด↗**]({file_url_200})", 
+                name=f"📦 สถานะ: ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
+                value="", 
                 inline=False
             )
         else:
