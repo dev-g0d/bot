@@ -63,86 +63,48 @@ def extract_app_id(message_content):
 
 def fetch_release_date_from_store_api(app_id: str) -> str:
     """
-    ดึงวันวางจำหน่ายจาก Steam Store API และแปลงเป็นเดือนเต็มภาษาไทย
+    ดึงวันวางจำหน่ายจาก Steam Store API และแปลงเป็นภาษาไทยเสมอ
     """
-    url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th" 
-    
-    # Map สำหรับแปลงเดือนย่อภาษาไทยเป็นเดือนเต็ม
-    thai_month_map = {
-        "ม.ค.": "มกราคม", "ก.พ.": "กุมภาพันธ์", "มี.ค.": "มีนาคม", "เม.ย.": "เมษายน",
-        "พ.ค.": "พฤษภาคม", "มิ.ย.": "มิถุนายน", "ก.ค.": "กรกฎาคม", "ส.ค.": "สิงหาคม",
-        "ก.ย.": "กันยายน", "ต.ค.": "ตุลาคม", "พ.ย.": "พฤศจิกายน", "ธ.ค.": "ธันวาคม"
-    }
-    
-    # Map สำหรับแปลงเดือนย่อภาษาอังกฤษเป็นเดือนเต็มภาษาไทย (ใช้เมื่อ locale ไม่ทำงาน)
+    url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
+
     english_to_thai_month_map = {
         "Jan": "มกราคม", "Feb": "กุมภาพันธ์", "Mar": "มีนาคม", "Apr": "เมษายน",
         "May": "พฤษภาคม", "Jun": "มิถุนายน", "Jul": "กรกฎาคม", "Aug": "สิงหาคม",
         "Sep": "กันยายน", "Oct": "ตุลาคม", "Nov": "พฤศจิกายน", "Dec": "ธันวาคม"
     }
 
+    thai_month_map = {
+        "ม.ค.": "มกราคม", "ก.พ.": "กุมภาพันธ์", "มี.ค.": "มีนาคม", "เม.ย.": "เมษายน",
+        "พ.ค.": "พฤษภาคม", "มิ.ย.": "มิถุนายน", "ก.ค.": "กรกฎาคม", "ส.ค.": "สิงหาคม",
+        "ก.ย.": "กันยายน", "ต.ค.": "ตุลาคม", "พ.ย.": "พฤศจิกายน", "ธ.ค.": "ธันวาคม"
+    }
+
     try:
         response = requests.get(url, timeout=5)
         response.raise_for_status()
         data = response.json()
-        
+
         if data and data.get(app_id, {}).get('success') is True:
             release_date_str = data[app_id].get('data', {}).get('release_date', {}).get('date', 'ไม่ระบุ')
-            
             if release_date_str == 'ไม่ระบุ':
                 return 'ไม่ระบุ'
 
-            # --- ตรรกะการแปลงวันที่ ---
-            
-            # 1. ลองแปลงจากรูปแบบภาษาอังกฤษ (Apr 28, 2017)
+            # ✅ กรณีเป็นรูปแบบอังกฤษ เช่น "Apr 27, 2017"
             try:
-                # พยายาม parse ด้วย locale อังกฤษ
-                original_locale = locale.getlocale(locale.LC_TIME)
-                locale.setlocale(locale.LC_TIME, 'en_US.utf8') 
                 release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
-                
-                # คืนค่า locale เดิม
-                try:
-                    locale.setlocale(locale.LC_TIME, original_locale[0] or 'th_TH.utf8')
-                except:
-                    pass
+                month_th = english_to_thai_month_map[release_date_obj.strftime('%b')]
+                return f"{release_date_obj.day} {month_th} {release_date_obj.year}"
+            except ValueError:
+                pass
 
-                # ถ้า parse สำเร็จ ให้ format เป็นภาษาไทยเต็ม (จะใช้ locale ที่ตั้งไว้ตอนต้น)
-                return release_date_obj.strftime('%#d %B %Y')
+            # ✅ กรณีเป็นภาษาไทยย่อ เช่น "27 เม.ย. 2017"
+            for short, long in thai_month_map.items():
+                if short in release_date_str:
+                    return release_date_str.replace(short, long)
 
-            except (ValueError, locale.Error):
-                # ถ้า parse ไม่สำเร็จ (เพราะเป็นรูปแบบภาษาไทยย่อ, ภาษาอังกฤษที่ locale ไม่รองรับ, หรือรูปแบบอื่น)
+            # ✅ กรณีอื่นๆ (ส่งมาเป็น full ไทยอยู่แล้ว หรือไม่รู้จัก)
+            return release_date_str
 
-                # คืนค่า locale เดิม
-                try:
-                    locale.setlocale(locale.LC_TIME, original_locale[0] or 'th_TH.utf8')
-                except:
-                    pass
-                
-                final_date_str = release_date_str
-
-                # 2. ลองแปลงเดือนย่อภาษาไทย -> เดือนเต็ม (กรณี API ส่ง '28 เม.ย. 2017')
-                is_thai_short_month = False
-                for short, long in thai_month_map.items():
-                    if short in final_date_str:
-                        final_date_str = final_date_str.replace(short, long)
-                        is_thai_short_month = True
-                        break
-
-                # 3. ถ้าไม่ใช่เดือนไทยย่อ (is_thai_short_month=False) และยังเป็นภาษาอังกฤษอยู่ 
-                # ให้ใช้ Map บังคับแปลงเดือนย่ออังกฤษ -> เดือนเต็มไทย (กรณี API ส่ง 'Apr 28, 2017' แต่ locale ไม่ทำงาน)
-                if not is_thai_short_month:
-                    parts = final_date_str.replace(',', '').split()
-                    if len(parts) >= 3 and parts[0] in english_to_thai_month_map:
-                        month_en = parts[0]
-                        day = parts[1]
-                        year = parts[2]
-                        
-                        month_th = english_to_thai_month_map[month_en]
-                        final_date_str = f"{day} {month_th} {year}"
-                
-                return final_date_str
-            
         return 'ไม่ระบุ'
 
     except requests.RequestException as e:
