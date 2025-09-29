@@ -57,7 +57,7 @@ def get_steam_info(app_id):
             common = app_data.get('common', {})
             extended = app_data.get('extended', {})
             
-            name = common.get('name', 'N/A')
+            name = common.get('name', 'ไม่พบแอป')
             header_image_hash = common.get('header_image', {}).get('english')
             header_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None
             
@@ -127,8 +127,8 @@ async def on_message(message):
         )
         
         if steam_data:
-            embed.add_field(name="ชื่อเกม", value=steam_data['name'], inline=False)
-            embed.add_field(name="DLCs (จาก SteamCMD)", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
+            embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
+            embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
             embed.add_field(name="ลิงก์ Steam Store", value=f"[คลิกที่นี่](https://store.steampowered.com/app/{app_id}/)", inline=True)
             if steam_data['image']:
                 embed.set_thumbnail(url=steam_data['image'])
