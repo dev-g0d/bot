@@ -76,32 +76,22 @@ def get_steam_info(app_id):
         return None
 
 def check_file_status(app_id):
-    # --- STEP 1: เช็ค Melly ---
+    # STEP 1: เช็ค Melly
     melly_check_url = f"{MELLY_BASE_URL}{app_id}"
     try:
         melly_response = requests.get(melly_check_url, allow_redirects=False, timeout=7)
         if melly_response.status_code != 200:
-            print(f"[Melly] {app_id} not ready. Status {melly_response.status_code}")
             return None
-    except requests.exceptions.RequestException as e:
-        print(f"[Melly] Error: {e}")
+    except requests.exceptions.RequestException:
         return None
 
-    # --- STEP 2: ถ้า Melly ผ่านแน่นอนว่า Devg0d จะ 200 ---
+    # STEP 2: ขอ URL จาก Devg0d
     devgod_request_url = f"{DEVGOD_BASE_URL}{app_id}"
     try:
         devgod_response = requests.get(devgod_request_url, allow_redirects=True, timeout=10)
-        final_url = devgod_response.url
-        final_status = devgod_response.status_code
-
-        print(f"[Devg0d] Final URL: {final_url}, Status: {final_status}")
-
-        # ถ้า Melly ผ่าน final_url ต้องใช้ได้แน่นอน
-        if "/app/" in final_url:
-            return final_url
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"[Devg0d] Error: {e}")
+        # เอา URL สุดท้ายเลย ไม่ต้องเช็ค status
+        return devgod_response.url
+    except requests.exceptions.RequestException:
         return None
 
 # --- 4. Discord Events ---
