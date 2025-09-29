@@ -10,19 +10,15 @@ import time
 import datetime 
 import locale   
 
-# --- ตั้งค่า Locale เป็นภาษาไทย (สำคัญสำหรับการแสดงชื่อเดือน) ---
-# การตั้งค่านี้อาจแตกต่างกันไปตามระบบปฏิบัติการ (Windows, Linux, Mac)
+# --- ตั้งค่า Locale เป็นภาษาไทย (ใช้เท่าที่ทำได้ แต่ไม่พึ่งพา 100%) ---
 try:
     locale.setlocale(locale.LC_ALL, 'th_TH.utf8')
 except locale.Error:
     try:
-        # ลองใช้โค้ดสำหรับระบบอื่น ๆ หรือ environments ที่รองรับ
         locale.setlocale(locale.LC_ALL, 'th_TH')
     except locale.Error:
-        # หากไม่สามารถตั้งค่าภาษาไทยได้จริง ๆ ให้ใช้ภาษาอังกฤษเป็นค่า fallback
-        print("Warning: Could not set Thai locale. Dates will be in English/Default format.")
+        print("Warning: Thai locale not fully available. Using custom translation map.")
         pass
-
 
 # --- 1. Flask Keep-Alive Setup ---
 web_app = Flask('') 
@@ -60,42 +56,49 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 def extract_app_id(message_content):
     if message_content.isdigit():
         return message_content
-    match = re.search(r'(?:steamdb\.info\/app\/|store\.steampowered\.com\/app\/)(\d+)', message_content)
+    match = re.search(r'(?:steamdb\.info\/app\/|store\.steampowered\.com\/app\/)(\d+)', message.content)
     if match:
         return match.group(1)
     return None
 
 def fetch_release_date_from_store_api(app_id: str) -> str:
     """
-    ดึงวันวางจำหน่ายจาก Steam Store API 
-    ใช้ cc=th&l=th เพื่อให้ API คืนค่าเป็นภาษาไทย และแปลงเป็นเดือนเต็ม
+    ดึงวันวางจำหน่ายจาก Steam Store API และแปลงเป็นเดือนเต็มภาษาไทย
     """
     url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th" 
     
-    # กำหนด Map สำหรับแปลงเดือนย่อภาษาไทยเป็นเดือนเต็ม
+    # Map สำหรับแปลงเดือนย่อภาษาไทยเป็นเดือนเต็ม
     thai_month_map = {
         "ม.ค.": "มกราคม", "ก.พ.": "กุมภาพันธ์", "มี.ค.": "มีนาคม", "เม.ย.": "เมษายน",
         "พ.ค.": "พฤษภาคม", "มิ.ย.": "มิถุนายน", "ก.ค.": "กรกฎาคม", "ส.ค.": "สิงหาคม",
         "ก.ย.": "กันยายน", "ต.ค.": "ตุลาคม", "พ.ย.": "พฤศจิกายน", "ธ.ค.": "ธันวาคม"
     }
     
+    # Map สำหรับแปลงเดือนย่อภาษาอังกฤษเป็นเดือนเต็มภาษาไทย (ใช้เมื่อ locale ไม่ทำงาน)
+    english_to_thai_month_map = {
+        "Jan": "มกราคม", "Feb": "กุมภาพันธ์", "Mar": "มีนาคม", "Apr": "เมษายน",
+        "May": "พฤษภาคม", "Jun": "มิถุนายน", "Jul": "กรกฎาคม", "Aug": "สิงหาคม",
+        "Sep": "กันยายน", "Oct": "ตุลาคม", "Nov": "พฤศจิกายน", "Dec": "ธันวาคม"
+    }
+
     try:
         response = requests.get(url, timeout=5)
         response.raise_for_status()
         data = response.json()
         
-        # ตรวจสอบโครงสร้าง JSON
         if data and data.get(app_id, {}).get('success') is True:
             release_date_str = data[app_id].get('data', {}).get('release_date', {}).get('date', 'ไม่ระบุ')
             
             if release_date_str == 'ไม่ระบุ':
                 return 'ไม่ระบุ'
 
-            # 1. พยายามแปลงวันที่ที่มาในรูปแบบภาษาอังกฤษ (Apr 28, 2017)
+            # --- ตรรกะการแปลงวันที่ ---
+            
+            # 1. ลองแปลงจากรูปแบบภาษาอังกฤษ (Apr 28, 2017)
             try:
+                # พยายาม parse ด้วย locale อังกฤษ
                 original_locale = locale.getlocale(locale.LC_TIME)
                 locale.setlocale(locale.LC_TIME, 'en_US.utf8') 
-                
                 release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
                 
                 # คืนค่า locale เดิม
@@ -104,46 +107,41 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
                 except:
                     pass
 
-                # ถ้า parse สำเร็จ ให้ format เป็นภาษาไทยเต็ม (จะได้ "เมษายน" แทน "Apr")
+                # ถ้า parse สำเร็จ ให้ format เป็นภาษาไทยเต็ม (จะใช้ locale ที่ตั้งไว้ตอนต้น)
                 return release_date_obj.strftime('%#d %B %Y')
 
-            except ValueError:
-                # 2. ถ้า parse ไม่สำเร็จ (เพราะเป็นรูปแบบภาษาไทยย่อ เช่น "28 เม.ย. 2017") หรือรูปแบบอื่น
+            except (ValueError, locale.Error):
+                # ถ้า parse ไม่สำเร็จ (เพราะเป็นรูปแบบภาษาไทยย่อ, ภาษาอังกฤษที่ locale ไม่รองรับ, หรือรูปแบบอื่น)
+
                 # คืนค่า locale เดิม
                 try:
                     locale.setlocale(locale.LC_TIME, original_locale[0] or 'th_TH.utf8')
                 except:
                     pass
-
-                # ทำการแปลงเดือนย่อภาษาไทยให้เป็นเดือนเต็ม
+                
                 final_date_str = release_date_str
+
+                # 2. ลองแปลงเดือนย่อภาษาไทย -> เดือนเต็ม (กรณี API ส่ง '28 เม.ย. 2017')
+                is_thai_short_month = False
                 for short, long in thai_month_map.items():
                     if short in final_date_str:
                         final_date_str = final_date_str.replace(short, long)
-                        break # พบแล้วออกจากลูป
+                        is_thai_short_month = True
+                        break
+
+                # 3. ถ้าไม่ใช่เดือนไทยย่อ (is_thai_short_month=False) และยังเป็นภาษาอังกฤษอยู่ 
+                # ให้ใช้ Map บังคับแปลงเดือนย่ออังกฤษ -> เดือนเต็มไทย (กรณี API ส่ง 'Apr 28, 2017' แต่ locale ไม่ทำงาน)
+                if not is_thai_short_month:
+                    parts = final_date_str.replace(',', '').split()
+                    if len(parts) >= 3 and parts[0] in english_to_thai_month_map:
+                        month_en = parts[0]
+                        day = parts[1]
+                        year = parts[2]
+                        
+                        month_th = english_to_thai_month_map[month_en]
+                        final_date_str = f"{day} {month_th} {year}"
                 
                 return final_date_str
-            
-            except locale.Error:
-                # 3. จัดการกรณีที่ตั้งค่า locale ไม่ได้
-                try:
-                    locale.setlocale(locale.LC_TIME, 'C')
-                    release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
-                    
-                    # กลับไปใช้ Thai locale เพื่อ format
-                    try:
-                        locale.setlocale(locale.LC_TIME, original_locale[0] or 'th_TH.utf8')
-                    except:
-                        pass
-                    return release_date_obj.strftime('%#d %B %Y')
-                except ValueError:
-                     # ถ้า parse ไม่ได้ ก็คืนค่า string เดิมและแปลงเดือนย่อเป็นเต็ม
-                    final_date_str = release_date_str
-                    for short, long in thai_month_map.items():
-                        if short in final_date_str:
-                            final_date_str = final_date_str.replace(short, long)
-                            break
-                    return final_date_str
             
         return 'ไม่ระบุ'
 
