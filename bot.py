@@ -26,7 +26,7 @@ def keep_alive():
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
 ALLOWED_CHANNEL_ID = 1098314625646329966  
-MELLY_BASE_URL = "https://mellyiscoolaf.pythonanywhere.com/" 
+MELLY_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 
@@ -76,37 +76,33 @@ def get_steam_info(app_id):
         print(f"Error fetching SteamCMD info for {app_id}: {e}")
         return None
 
-def check_file_status(app_id, retries=3, delay=2):
-    import time
-    melly_check_url = f"{MELLY_BASE_URL}{app_id}"
+def check_file_status(app_id: str) -> str | None:
+    """
+    ส่ง request ไปยัง devg0d.pythonanywhere.com/app_request/{appid}
+    ตาม redirect จนถึงปลายทาง
+    ถ้า final response = 200 และมี content-disposition -> return URL
+    ถ้าไม่ใช่ -> return None
+    """
+    url = f"{MELLY_BASE_URL}{app_id}"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/124.0 Safari/537.36"
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0 Safari/537.36"
+        )
     }
 
-    for attempt in range(retries):
-        try:
-            melly_response = requests.get(
-                melly_check_url,
-                headers=headers,
-                allow_redirects=True,
-                timeout=10
-            )
-            
-            if melly_response.status_code == 200:
-                if "content-disposition" in melly_response.headers:
-                    return melly_check_url
+    try:
+        response = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+        final_url = response.url   # URL ปลายทางที่ redirect ไปถึง
 
-            if attempt < retries - 1:
-                time.sleep(delay)
-        
-        except requests.exceptions.RequestException:
-            if attempt < retries - 1:
-                time.sleep(delay)
-            continue
+        if response.status_code == 200 and "content-disposition" in response.headers:
+            return final_url  # คืนลิงก์ไฟล์จริง
+    except requests.RequestException:
+        return None
 
     return None
+
 
 # --- 4. Discord Events ---
 @bot.event
