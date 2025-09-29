@@ -76,14 +76,18 @@ def get_steam_info(app_id):
         return None
 
 def check_file_status(app_id):
-    # เช็ค Melly โดยตรง ถ้า 200 return URL เลย
     melly_check_url = f"{MELLY_BASE_URL}{app_id}"
     try:
-        melly_response = requests.get(melly_check_url, allow_redirects=False, timeout=7)
+        melly_response = requests.get(melly_check_url, allow_redirects=True, timeout=10)
+        
+        # เช็คว่าได้ 200 และเป็นไฟล์ (มี Content-Disposition)
         if melly_response.status_code == 200:
-            return melly_check_url
-        else:
-            return None
+            if "content-disposition" in melly_response.headers:
+                return melly_check_url
+            else:
+                # ถึงจะเป็น 200 แต่ถ้าไม่ใช่ไฟล์ก็ไม่คืนค่า
+                return None
+        return None
     except requests.exceptions.RequestException:
         return None
 
