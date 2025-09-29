@@ -89,10 +89,15 @@ def check_file_status(app_id):
     devgod_request_url = f"{DEVGOD_BASE_URL}{app_id}"
     try:
         devgod_response = requests.get(devgod_request_url, allow_redirects=True, timeout=10)
-        if devgod_response.status_code == 200:
-            return devgod_response.url
+        final_url = devgod_response.url
+        final_status = devgod_response.status_code
+        
+        print(f"Final URL: {final_url}, Status: {final_status}")  # Debug log
+        
+        if final_status == 200 and "/app/" in final_url:
+            return final_url
         else:
-            print(f"Devg0d status not 200. Status: {devgod_response.status_code}")
+            print(f"Final destination not valid. Status: {final_status}, URL: {final_url}")
             return None
     except requests.exceptions.RequestException as e:
         print(f"Error fetching final Devg0d URL for {app_id}: {e}")
