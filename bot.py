@@ -178,8 +178,8 @@ async def on_message(message):
             
         if file_url_200:
             embed.add_field(
-                name=f"📦 สถานะ: ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
-                value="", 
+                name="", 
+                value=f"📦 สถานะ: ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
                 inline=False
             )
         else:
