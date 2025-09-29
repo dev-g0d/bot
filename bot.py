@@ -45,6 +45,9 @@ ALLOWED_CHANNEL_ID = 1098314625646329966
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 
+# เพิ่ม: Steam Store API URL สำหรับดึงรายละเอียดเกม
+STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
+
 # Intents
 intents = discord.Intents.default()
 intents.messages = True
@@ -62,7 +65,59 @@ def extract_app_id(message_content):
         return match.group(1)
     return None
 
+def fetch_release_date_from_store_api(app_id: str) -> str:
+    """ดึงวันวางจำหน่ายจาก Steam Store API และแปลงเป็นภาษาไทย"""
+    url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th" # ใช้ cc=th&l=th เพื่อให้ได้วันที่ตามรูปแบบ locale ไทย
+    release_date_thai = 'ไม่ระบุ'
+    
+    try:
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        
+        # ตรวจสอบโครงสร้าง JSON
+        if data and data.get(app_id, {}).get('success') is True:
+            app_details = data[app_id].get('data', {})
+            release_data = app_details.get('release_date', {})
+            
+            # ดึงวันที่ (มักจะมาในรูปแบบ 'DD Mon YYYY' เช่น '11 ก.พ. 2021')
+            release_date_str = release_data.get('date', 'ไม่ระบุ')
+            
+            if release_date_str != 'ไม่ระบุ':
+                try:
+                    # ถ้า API ให้วันที่ในรูปแบบที่สามารถแปลงได้ เช่น '11 Feb, 2021'
+                    # เราจะลองแปลงจากรูปแบบที่ Steam Store API มักจะส่งมาใน locale ต่างๆ
+                    
+                    # 1. ลองหาชื่อเดือนในภาษาอังกฤษก่อน (มักจะเป็นรูปแบบนี้เมื่อไม่ได้ตั้ง locale)
+                    # ตัวอย่าง: 'Feb 11, 2021'
+                    try:
+                        release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
+                        # จัดรูปแบบวันที่เป็นภาษาไทย: วันที่(ไม่มี 0 นำหน้า) เดือนเต็ม ปี ค.ศ.
+                        release_date_thai = release_date_obj.strftime('%#d %B %Y')
+                        return release_date_thai
+                    except ValueError:
+                        pass # ถ้าแปลงด้วยรูปแบบอังกฤษไม่ได้ ให้ลองรูปแบบอื่น
+                        
+                    # 2. ถ้า API ส่งวันที่ในรูปแบบไทยมาเลย เช่น '11 ก.พ. 2021' ให้ใช้ค่านี้โดยตรง
+                    if 'ก.พ.' in release_date_str or 'พ.ค.' in release_date_str:
+                        release_date_thai = release_date_str
+                        return release_date_thai
+                        
+                except Exception as e:
+                    # กรณีที่รูปแบบวันที่ซับซ้อนเกินไป ให้ใช้ค่า string เดิม
+                    release_date_thai = release_date_str 
+
+    except requests.RequestException as e:
+        print(f"Error fetching Steam Store info for {app_id}: {e}")
+        
+    return release_date_thai
+
+
 def get_steam_info(app_id):
+    # ดึงวันวางจำหน่ายจาก Steam Store API ก่อน
+    release_date_thai = fetch_release_date_from_store_api(app_id)
+    
+    # ดึงข้อมูลส่วนที่เหลือจาก SteamCMD API
     try:
         url = f"{STEAMCMD_API_URL}{app_id}"
         response = requests.get(url, timeout=7)
@@ -81,25 +136,13 @@ def get_steam_info(app_id):
             dlc_items = [item for item in dlc_list_str.split(',') if item.strip()]
             dlc_count = len(dlc_items)
 
-            # ดึงข้อมูลวันวางจำหน่ายเป็น string ภาษาอังกฤษ
-            release_date_str = common.get('release_date', {}).get('english', 'ไม่ระบุ')
-            
-            release_date_thai = 'ไม่ระบุ'
-            if release_date_str != 'ไม่ระบุ':
-                try:
-                    # พยายามแปลงจากรูปแบบ 'Month DD, YYYY'
-                    release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
-                    # จัดรูปแบบวันที่เป็นภาษาไทย: วันที่(ไม่มี 0 นำหน้า) เดือนเต็ม ปี ค.ศ.
-                    release_date_thai = release_date_obj.strftime('%#d %B %Y')
-                except ValueError:
-                    # ถ้าแปลงไม่ได้ แสดงว่าเป็นวันที่ที่ Steam ระบุเป็นข้อความ (เช่น 'TBA' หรือ 'Q1 2025')
-                    release_date_thai = release_date_str 
+            # NOTE: ตัดส่วนที่เคยดึง release_date จาก SteamCMD ออกไป
             
             return {
                 'name': name,
                 'image': header_image,
                 'dlc_count': dlc_count,
-                'release_date': release_date_thai, # ใช้ค่าวันที่ภาษาไทย
+                'release_date': release_date_thai, # ใช้ค่าวันที่ที่ได้จาก Store API
             }
         return None
     except requests.RequestException as e:
@@ -160,12 +203,12 @@ async def on_message(message):
         if steam_data:
             embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
             
-            # เพิ่ม: วันวางจำหน่ายภาษาไทย
+            # แสดงวันวางจำหน่ายที่ได้จาก Store API
             embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False) 
             
             embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
             
-            # แก้ไข: เปลี่ยนเป็น Links และเพิ่ม SteamDB (inline=False)
+            # ลิงก์ Steam Store | SteamDB
             embed.add_field(name="Links", 
                             value=f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)", 
                             inline=False)
