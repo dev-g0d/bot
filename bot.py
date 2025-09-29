@@ -167,6 +167,7 @@ def check_file_status(app_id: str) -> str | None:
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('Bot is ready and running!')
+    await bot.change_presence(activity=discord.Game(name="24/7 for Manifest"))  # Set bot status
 
 @bot.event
 async def on_message(message):
@@ -174,11 +175,10 @@ async def on_message(message):
         return
 
     if message.channel.id != ALLOWED_CHANNEL_ID:
-        return
+        return  # Ignore all activity if not in allowed channel
 
     app_id = extract_app_id(message.content)
     if app_id:
-        await message.channel.typing()
         steam_data = get_steam_info(app_id)
         file_url_200 = check_file_status(app_id) 
         
