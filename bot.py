@@ -97,7 +97,20 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
 
 def get_steam_info(app_id):
     release_date_thai = fetch_release_date_from_store_api(app_id)
-    
+
+    # --- ดึงข้อมูลจาก Steam Store API เพื่อเอา header_image ด้วย ---
+    store_url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
+    header_image_store = None
+    try:
+        store_resp = requests.get(store_url, timeout=5)
+        store_resp.raise_for_status()
+        store_data = store_resp.json()
+        if store_data and store_data.get(app_id, {}).get("success") is True:
+            header_image_store = store_data[app_id].get("data", {}).get("header_image")
+    except requests.RequestException:
+        pass
+
+    # --- ดึงข้อมูลจาก SteamCMD API ---
     try:
         url = f"{STEAMCMD_API_URL}{app_id}"
         response = requests.get(url, timeout=7)
@@ -107,11 +120,16 @@ def get_steam_info(app_id):
             app_data = data['data'][app_id]
             common = app_data.get('common', {})
             extended = app_data.get('extended', {})
-            
+
             name = common.get('name', 'ไม่พบแอป')
+
+            # ใช้ภาพจาก CMD ถ้ามี, ถ้าไม่มีใช้จาก Store
             header_image_hash = common.get('header_image', {}).get('english')
-            header_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None
-            
+            if header_image_hash:
+                header_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}"
+            else:
+                header_image = header_image_store
+
             dlc_list_str = extended.get('listofdlc', '')
             dlc_items = [item for item in dlc_list_str.split(',') if item.strip()]
             dlc_count = len(dlc_items)
