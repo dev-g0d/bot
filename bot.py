@@ -76,21 +76,14 @@ def get_steam_info(app_id):
         return None
 
 def check_file_status(app_id):
-    # STEP 1: เช็ค Melly
+    # เช็ค Melly โดยตรง ถ้า 200 return URL เลย
     melly_check_url = f"{MELLY_BASE_URL}{app_id}"
     try:
         melly_response = requests.get(melly_check_url, allow_redirects=False, timeout=7)
-        if melly_response.status_code != 200:
+        if melly_response.status_code == 200:
+            return melly_check_url
+        else:
             return None
-    except requests.exceptions.RequestException:
-        return None
-
-    # STEP 2: ขอ URL จาก Devg0d
-    devgod_request_url = f"{DEVGOD_BASE_URL}{app_id}"
-    try:
-        devgod_response = requests.get(devgod_request_url, allow_redirects=True, timeout=10)
-        # เอา URL สุดท้ายเลย ไม่ต้องเช็ค status
-        return devgod_response.url
     except requests.exceptions.RequestException:
         return None
 
