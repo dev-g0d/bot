@@ -215,7 +215,7 @@ async def on_message(message):
                 inline=False
             )
         
-        await message.channel.send(embed=embed)
+        await message.reply(embed=embed)
 
 # --- 5. Main Execution ---
 if __name__ == '__main__':
