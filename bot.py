@@ -174,7 +174,7 @@ async def on_message(message):
         
         embed = discord.Embed(
             title=f"🔎 ข้อมูล Steam App ID: {app_id}",
-            color=0x1b2838
+            color=0x00FF00 if file_url_200 else 0xFF0000
         )
         
         if steam_data:
@@ -183,7 +183,7 @@ async def on_message(message):
             embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
             embed.add_field(
                 name="Links", 
-                value=f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)", 
+                value=f"[Steam Store](https://store.steam.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)", 
                 inline=False
             )
             
