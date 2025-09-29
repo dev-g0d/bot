@@ -167,7 +167,7 @@ def check_file_status(app_id: str) -> str | None:
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('Bot is ready and running!')
-    await bot.change_presence(activity=discord.Game(name="24/7 for Manifest"))  # Set bot status
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="24/7 for Manifest"))
 
 @bot.event
 async def on_message(message):
@@ -179,6 +179,7 @@ async def on_message(message):
 
     app_id = extract_app_id(message.content)
     if app_id:
+        await message.channel.typing()  # Show typing indicator only in allowed channel
         steam_data = get_steam_info(app_id)
         file_url_200 = check_file_status(app_id) 
         
