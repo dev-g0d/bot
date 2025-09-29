@@ -173,6 +173,9 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    if message.channel.id != ALLOWED_CHANNEL_ID:
+        return
+
     app_id = extract_app_id(message.content)
     if app_id:
         await message.channel.typing()
