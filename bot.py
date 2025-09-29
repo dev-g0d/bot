@@ -94,11 +94,10 @@ def check_file_status(app_id):
         
         print(f"Final URL: {final_url}, Status: {final_status}")  # Debug log
         
-        if final_status == 200 and "/app/" in final_url:
+        # ยืดหยุ่นขึ้น: แค่เจอ URL ที่ไม่ใช่ /app_request ก็ถือว่าโอเค
+        if "/app/" in final_url:
             return final_url
-        else:
-            print(f"Final destination not valid. Status: {final_status}, URL: {final_url}")
-            return None
+        return None
     except requests.exceptions.RequestException as e:
         print(f"Error fetching final Devg0d URL for {app_id}: {e}")
         return None
@@ -149,6 +148,9 @@ async def on_message(message):
             )
         
         await message.channel.send(embed=embed)
+
+    # สำคัญ: ให้ bot จัดการ command ต่อ
+    await bot.process_commands(message)
 
 # --- 5. Main Execution ---
 if __name__ == '__main__':
