@@ -63,7 +63,7 @@ def extract_app_id(message_content):
 
 def fetch_release_date_from_store_api(app_id: str) -> str:
     """
-    ดึงวันวางจำหน่ายจาก Steam Store API และแปลงเป็นภาษาไทยเสมอ
+    ดึงวันวางจำหน่ายจาก Steam Store API และแปลงเดือนเป็นภาษาไทยเต็ม
     """
     url = f"{STEAM_APP_DETAILS_URL}{app_id}&cc=th&l=th"
 
@@ -89,7 +89,12 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
             if release_date_str == 'ไม่ระบุ':
                 return 'ไม่ระบุ'
 
-            # ✅ กรณีเป็นรูปแบบอังกฤษ เช่น "Apr 27, 2017"
+            # ✅ กรณีภาษาไทยย่อ เช่น "28 เม.ย. 2017"
+            for short, long in thai_month_map.items():
+                if short in release_date_str:
+                    return release_date_str.replace(short, long)
+
+            # ✅ กรณีภาษาอังกฤษ เช่น "Apr 27, 2017"
             try:
                 release_date_obj = datetime.datetime.strptime(release_date_str, '%b %d, %Y')
                 month_th = english_to_thai_month_map[release_date_obj.strftime('%b')]
@@ -97,12 +102,7 @@ def fetch_release_date_from_store_api(app_id: str) -> str:
             except ValueError:
                 pass
 
-            # ✅ กรณีเป็นภาษาไทยย่อ เช่น "27 เม.ย. 2017"
-            for short, long in thai_month_map.items():
-                if short in release_date_str:
-                    return release_date_str.replace(short, long)
-
-            # ✅ กรณีอื่นๆ (ส่งมาเป็น full ไทยอยู่แล้ว หรือไม่รู้จัก)
+            # fallback ถ้าเป็นรูปแบบอื่น
             return release_date_str
 
         return 'ไม่ระบุ'
