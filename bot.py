@@ -203,8 +203,10 @@ async def on_message(message):
             
             if steam_data['image']:
                 embed.set_image(url=steam_data['image'])
+                embed.set_footer(text="discord • DEV/g0d • Morrenus")
         else:
             embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
+            embed.set_footer(text="discord • DEV/g0d • Morrenus")
             
         if file_url_200:
             embed.add_field(
