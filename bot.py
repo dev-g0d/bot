@@ -31,11 +31,13 @@ intents = nextcord.Intents.default()
 intents.messages = True
 intents.message_content = True
 intents.guilds = True
+intents.members = True  # เพิ่ม intents สำหรับดึงข้อมูลสมาชิก
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- 3. Global Variables ---
 active_channel = None  # เริ่มต้นเป็น None ไม่ทำงานชาแนลไหน
+OWNER_ID = 1276962523324616841  # ID ของมึงเป็นเจ้าของเซิร์ฟ
 
 # --- 4. Helper Functions ---
 def extract_app_id(message_content):
@@ -182,7 +184,7 @@ async def mode(interaction: nextcord.Interaction, action: str = nextcord.SlashOp
     },
     required=True
 )):
-    if interaction.user == interaction.guild.owner:  # ตรวจสอบว่าเป็นเจ้าของเซิร์ฟ
+    if interaction.user.id == OWNER_ID:  # ตรวจสอบว่าเป็นมึงโดยใช้ ID
         global active_channel
         if action.lower() == "activate":
             active_channel = interaction.channel
