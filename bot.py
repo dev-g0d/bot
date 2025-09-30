@@ -63,7 +63,7 @@ def fetch_release_date_from_store_data(store_data: dict) -> str:
     }
 
     raw_date = store_data.get('release_date', {}).get('date', 'ไม่ระบุ')
-    if raw_date == 'ไม่ระบุ':
+    if raw_date == 'ไม่ระบุ' or raw_date.lower() == 'tba':
         return 'ไม่ระบุ'
 
     # กรณีภาษาไทยย่อ เช่น "28 เม.ย. 2017"
@@ -71,14 +71,23 @@ def fetch_release_date_from_store_data(store_data: dict) -> str:
         if short in raw_date:
             return raw_date.replace(short, full)
 
-    # กรณีภาษาอังกฤษ เช่น "Apr 27, 2017"
+    # กรณีภาษาอังกฤษ เช่น "Apr 27, 2017" หรือ "2025-06-12"
     try:
+        # ลอง parse รูปแบบ "Month Day, Year" (เช่น "Apr 27, 2017")
         dt = datetime.datetime.strptime(raw_date, "%b %d, %Y")
         return f"{dt.day} {en_to_th[dt.strftime('%b')]} {dt.year}"
     except ValueError:
-        pass
+        try:
+            # ลอง parse รูปแบบ "YYYY-MM-DD" (เช่น "2025-06-12")
+            dt = datetime.datetime.strptime(raw_date, "%Y-%m-%d")
+            return f"{dt.day} {en_to_th[dt.strftime('%b')]} {dt.year}"
+        except ValueError:
+            pass
 
-    # กรณีอื่น ๆ ส่งกลับไปตรง ๆ
+    # กรณีอื่น ๆ ที่ parse ไม่ได้ (เช่น "Coming Soon" หรือ format อื่น) ส่งกลับเป็นไทยเต็มถ้ามี หรือไม่ก็ raw
+    for eng_month, th_month in en_to_th.items():
+        if eng_month in raw_date:
+            return raw_date.replace(eng_month, th_month)
     return raw_date
 
 def get_steam_info(app_id):
