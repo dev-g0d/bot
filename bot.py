@@ -119,13 +119,13 @@ def get_steam_info(app_id):
     except requests.RequestException as e:
         print(f"Steam Store fetch error: {e}")
 
-    # --- ดึงข้อมูลจาก SteamCMD API (สำหรับ DLC prioritize, name fallback, header fallback) ---
+    # --- ดึงข้อมูลจาก SteamCMD API (เน้น DLC จาก listofdlc) ---
     header_image_hash = None
     dlc_count_cmd = 0
     name_cmd = 'ไม่พบแอป'
     cmd_success = False
     try:
-        url = f"{STEAMCMD_API_URL}id={app_id}"  # ปรับให้เข้ากับ SteamCMD API
+        url = f"{STEAMCMD_API_URL}id={app_id}"  # ใช้ id= สำหรับ SteamCMD API
         response = requests.get(url, timeout=7)
         response.raise_for_status()
         data = response.json()
@@ -138,14 +138,14 @@ def get_steam_info(app_id):
             name_cmd = common.get('name', 'ไม่พบแอป')
             header_image_hash = common.get('header_image', {}).get('english')
             dlc_list_str = extended.get('listofdlc', '')
-            dlc_items = [item for item in dlc_list_str.split(',') if item.strip()]
-            dlc_count_cmd = len(dlc_items)
+            dlc_items = [item.strip() for item in dlc_list_str.split(',') if item.strip()]
+            dlc_count_cmd = len(dlc_items)  # ดึง DLC จาก listofdlc โดยตรง
     except requests.RequestException as e:
         print(f"SteamCMD fetch error: {e}")
 
     # --- รวมข้อมูล: prioritize Store สำหรับส่วนใหญ่ แต่ DLC prioritize CMD ถ้ามี ---
     name = name_store if store_success else name_cmd
-    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store
+    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store  # ใช้ DLC จาก SteamCMD ถ้ามี
     header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
 
     if not name:
