@@ -180,7 +180,7 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
     required=True
 )):
     if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
-        await interaction.response.send_message("ไม่มีสิทธิในการใช้งาน กรุณาใช้คำสั่งที่ #igist", ephemeral=True)
+        await interaction.response.send_message("ไม่มีสิทธิในการใช้งาน กรุณาใช้คำสั่งที่ <#1422199765818413116>", ephemeral=True)
         return
 
     app_id = extract_app_id(input_value)
