@@ -24,7 +24,7 @@ def keep_alive():
     
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
-ALLOWED_CHANNEL_ID = 1098314625646329966  
+ALLOWED_CHANNEL_IDS = [1098314625646329966, 1422199765818413116]  # รองรับหลายชาแนล
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
@@ -35,9 +35,6 @@ intents.messages = True
 intents.message_content = True
 intents.guilds = True
 intents.members = True  # เพิ่ม intents สำหรับดึงข้อมูลสมาชิก
-
-# กำหนด guild ID (ต้องใส่ ID ของเซิร์ฟเวอร์ที่ต้องการใช้ bot)
-GUILD_ID = 943658416122003566  # เปลี่ยนเป็น guild ID จริงของมึง!
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
@@ -176,13 +173,13 @@ def check_file_status(app_id: str) -> str | None:
     return None
 
 # --- 5. Slash Commands ---
-@bot.slash_command(name="appid_url", description="ค้นหาข้อมูล Steam จาก App ID หรือ URL", guild_ids=[GUILD_ID])
-async def appid_url(interaction: nextcord.Interaction, input_value: str = nextcord.SlashOption(
+@bot.slash_command(name="gen", description="ค้นหาไฟล์จาก App ID หรือ URL")
+async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.SlashOption(
     name="input",
     description="ใส่ App ID หรือ URL (เช่น 730 หรือ https://store.steampowered.com/app/730/)",
     required=True
 )):
-    if interaction.channel_id != ALLOWED_CHANNEL_ID:
+    if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
         await interaction.response.send_message("คำสั่งนี้ใช้ได้เฉพาะในชาแนลที่กำหนดเท่านั้น!", ephemeral=True)
         return
 
