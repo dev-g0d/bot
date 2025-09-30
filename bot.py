@@ -1,5 +1,5 @@
-import discord
-from discord.ext import commands
+import nextcord
+from nextcord.ext import commands
 import requests
 import re
 import os
@@ -25,15 +25,14 @@ def keep_alive():
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
 BOT_NAME = "Igist"  # ชื่อบอทที่ใช้
-BOT_PREFIX = "/"    # คำนำหน้าคำสั่ง (สำหรับ slash command)
 
 # Intents
-intents = discord.Intents.default()
+intents = nextcord.Intents.default()
 intents.messages = True
 intents.message_content = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- 3. Global Variables ---
 active_channel = None  # เริ่มต้นเป็น None ไม่ทำงานชาแนลไหน
@@ -174,29 +173,35 @@ def check_file_status(app_id: str) -> str | None:
 
 # --- 5. Slash Commands ---
 @bot.slash_command(name="mode", description="เปิด/ปิดการทำงานของบอทในชาแนลนี้")
-async def mode(ctx, action: str):
+async def mode(ctx, action: str = nextcord.SlashOption(
+    name="action",
+    description="เลือกโหมด",
+    choices={
+        "activate": "activate",
+        "deactivate": "deactivate"
+    },
+    required=True
+)):
     if ctx.author == ctx.guild.owner:  # ตรวจสอบว่าเป็นเจ้าของเซิร์ฟ
         global active_channel
         if action.lower() == "activate":
             active_channel = ctx.channel
-            await ctx.respond("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น", ephemeral=True)
+            await ctx.send("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น", ephemeral=True)
         elif action.lower() == "deactivate":
             if active_channel == ctx.channel:
                 active_channel = None
-                await ctx.respond("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้", ephemeral=True)
+                await ctx.send("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้", ephemeral=True)
             else:
-                await ctx.respond("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!", ephemeral=True)
-        else:
-            await ctx.respond("เลือกได้แค่ 'activate' หรือ 'deactivate' เท่านั้น!", ephemeral=True)
+                await ctx.send("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!", ephemeral=True)
     else:
-        await ctx.respond("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น", ephemeral=True)
+        await ctx.send("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น", ephemeral=True)
 
 # --- 6. Discord Events ---
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('Bot is ready and running!')
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="24/7 for Manifest"))
+    await bot.change_presence(activity=nextcord.Activity(type=nextcord.ActivityType.watching, name="24/7 for Manifest"))
 
 @bot.event
 async def on_message(message):
@@ -207,17 +212,13 @@ async def on_message(message):
     if active_channel is None or message.channel != active_channel:
         return  # ไม่ทำงานถ้าไม่มีชาแนลที่ activate หรือไม่ใช่ชาแนลที่ activate
 
-    if message.content.startswith(BOT_PREFIX):
-        await bot.process_commands(message)  # ปล่อยให้คำสั่งทำงาน
-        return
-
     app_id = extract_app_id(message.content)
     if app_id:
         await message.channel.typing()  # Show typing indicator only in active channel
         steam_data = get_steam_info(app_id)
         file_url_200 = check_file_status(app_id) 
         
-        embed = discord.Embed(
+        embed = nextcord.Embed(
             title=f"🔎 ข้อมูล Steam App ID: {app_id}",
             color=0x00FF00 if file_url_200 else 0xFF0000
         )
@@ -265,7 +266,7 @@ if __name__ == '__main__':
             print("FATAL ERROR: Please set the DISCORD_BOT_TOKEN environment variable or change the default value.")
         else:
             bot.run(DISCORD_BOT_TOKEN)
-    except discord.errors.LoginFailure:
+    except nextcord.errors.LoginFailure:
         print("FATAL ERROR: Invalid Discord Bot Token. Please check your token.")
     except Exception as e:
         print(f"An error occurred while running the bot: {e}")
