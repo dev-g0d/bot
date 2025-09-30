@@ -24,7 +24,10 @@ def keep_alive():
     
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
-BOT_NAME = "Igist"  # ชื่อบอทที่ใช้
+ALLOWED_CHANNEL_ID = 1098314625646329966  
+DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
+STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
+STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
 
 # Intents
 intents = nextcord.Intents.default()
@@ -35,10 +38,7 @@ intents.members = True  # เพิ่ม intents สำหรับดึงข
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# --- 3. Global Variables ---
-ALLOWED_CHANNEL_ID = 1098314625646329966  # ชาแนลที่อนุญาตให้ใช้ slash
-
-# --- 4. Helper Functions ---
+# --- 3. Helper Functions ---
 def extract_app_id(message_content):
     if message_content.isdigit():
         return message_content
@@ -125,11 +125,11 @@ def get_steam_info(app_id):
     name_cmd = 'ไม่พบแอป'
     cmd_success = False
     try:
-        url = f"{STEAMCMD_API_URL}{app_id}"
+        url = f"{STEAMCMD_API_URL}id={app_id}"  # ปรับให้เข้ากับ SteamCMD API
         response = requests.get(url, timeout=7)
         response.raise_for_status()
         data = response.json()
-        if data and data.get('status') == 'success' and app_id in data['data']:
+        if data and 'data' in data and app_id in data['data']:
             app_data = data['data'][app_id]
             common = app_data.get('common', {})
             extended = app_data.get('extended', {})
