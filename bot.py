@@ -36,8 +36,7 @@ intents.members = True  # เพิ่ม intents สำหรับดึงข
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- 3. Global Variables ---
-active_channel = None  # เริ่มต้นเป็น None ไม่ทำงานชาแนลไหน
-OWNER_ID = 1276962523324616841  # ID ของมึงเป็นเจ้าของเซิร์ฟ
+ALLOWED_CHANNEL_ID = 1098314625646329966  # ชาแนลที่อนุญาตให้ใช้ slash
 
 # --- 4. Helper Functions ---
 def extract_app_id(message_content):
@@ -174,36 +173,16 @@ def check_file_status(app_id: str) -> str | None:
     return None
 
 # --- 5. Slash Commands ---
-@bot.slash_command(name="mode", description="เปิด/ปิดการทำงานของบอทในชาแนลนี้")
-async def mode(interaction: nextcord.Interaction, action: str = nextcord.SlashOption(
-    name="action",
-    description="เลือกโหมด",
-    choices={
-        "activate": "activate",
-        "deactivate": "deactivate"
-    },
-    required=True
-)):
-    if interaction.user.id == OWNER_ID:  # ตรวจสอบว่าเป็นมึงโดยใช้ ID
-        global active_channel
-        if action.lower() == "activate":
-            active_channel = interaction.channel
-            await interaction.response.send_message("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น", ephemeral=True)
-        elif action.lower() == "deactivate":
-            if active_channel == interaction.channel:
-                active_channel = None
-                await interaction.response.send_message("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้", ephemeral=True)
-            else:
-                await interaction.response.send_message("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!", ephemeral=True)
-    else:
-        await interaction.response.send_message("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น", ephemeral=True)
-
 @bot.slash_command(name="appid_url", description="ค้นหาข้อมูล Steam จาก App ID หรือ URL")
 async def appid_url(interaction: nextcord.Interaction, input_value: str = nextcord.SlashOption(
     name="input",
     description="ใส่ App ID หรือ URL (เช่น 730 หรือ https://store.steampowered.com/app/730/)",
     required=True
 )):
+    if interaction.channel_id != ALLOWED_CHANNEL_ID:
+        await interaction.response.send_message("คำสั่งนี้ใช้ได้เฉพาะในชาแนลที่กำหนดเท่านั้น!", ephemeral=True)
+        return
+
     app_id = extract_app_id(input_value)
     if not app_id:
         await interaction.response.send_message("ไม่พบ App ID ในข้อมูลที่ให้มา!", ephemeral=True)
@@ -259,61 +238,6 @@ async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('Bot is ready and running!')
     await bot.change_presence(activity=nextcord.Activity(type=nextcord.ActivityType.watching, name="24/7 for Manifest"))
-
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    global active_channel
-    if active_channel is None or message.channel != active_channel:
-        return  # ไม่ทำงานถ้าไม่มีชาแนลที่ activate หรือไม่ใช่ชาแนลที่ activate
-
-    app_id = extract_app_id(message.content)
-    if app_id:
-        await message.channel.typing()  # Show typing indicator only in active channel
-        steam_data = get_steam_info(app_id)
-        file_url_200 = check_file_status(app_id) 
-        
-        embed = nextcord.Embed(
-            title=f"🔎 ข้อมูล Steam App ID: {app_id}",
-            color=0x00FF00 if file_url_200 else 0xFF0000
-        )
-        
-        if steam_data:
-            embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
-            embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
-            embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
-            links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
-            if steam_data['has_denuvo']:
-                links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
-            embed.add_field(
-                name="Links", 
-                value=links_value, 
-                inline=False
-            )
-            
-            if steam_data['image']:
-                embed.set_image(url=steam_data['image'])
-                embed.set_footer(text="discord • DEV/g0d • Morrenus")
-        else:
-            embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-            embed.set_footer(text="discord • DEV/g0d • Morrenus")
-            
-        if file_url_200:
-            embed.add_field(
-                name="", 
-                value=f"**📦 สถานะ:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name="📦 สถานะ: ❌ ไม่พบไฟล์", 
-                value="", 
-                inline=False
-            )
-        
-        await message.reply(embed=embed)
 
 # --- 7. Main Execution ---
 if __name__ == '__main__':
