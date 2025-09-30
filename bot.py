@@ -207,6 +207,29 @@ def download_and_extract_lua(app_id: str) -> tuple[str | None, str | None]:
         print(f"Error downloading or extracting ZIP: {e}")
         return None, None
 
+def list_files_in_zip(app_id: str) -> list[str] | None:
+    """
+    ดึง final URL จาก check_file_status และคืนรายชื่อไฟล์ทั้งหมดใน ZIP
+    """
+    final_url = check_file_status(app_id)
+    if not final_url:
+        return None
+
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(final_url, headers=headers, timeout=15)
+        response.raise_for_status()
+
+        # ใช้ BytesIO เพื่อจัดการไฟล์ ZIP ในหน่วยความจำ
+        with io.BytesIO(response.content) as zip_buffer:
+            with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
+                # ดึงรายชื่อไฟล์ทั้งหมดใน ZIP
+                return zip_ref.namelist()
+        return None
+    except (requests.RequestException, zipfile.BadZipFile) as e:
+        print(f"Error downloading or listing files in ZIP: {e}")
+        return None
+
 # --- 5. Slash Commands ---
 @bot.slash_command(name="gen", description="ค้นหาไฟล์จาก App ID หรือ URL")
 async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.SlashOption(
@@ -332,6 +355,70 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
             inline=False
         )
         await interaction.followup.send(embed=embed)
+
+@bot.slash_command(name="check_file", description="ตรวจสอบรายชื่อไฟล์ใน ZIP จาก App ID")
+async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.SlashOption(
+    name="appid",
+    description="ใส่ App ID (เช่น 2947440)",
+    required=True
+)):
+    if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
+        await interaction.response.send_message("ไม่มีสิทธิในการใช้งาน กรุณาใช้คำสั่งที่ <#1422199765818413116>", ephemeral=True)
+        return
+
+    if not app_id.isdigit():
+        await interaction.response.send_message("App ID ต้องเป็นตัวเลขเท่านั้น!", ephemeral=True)
+        return
+
+    await interaction.response.defer()  # แสดงว่ากำลังประมวลผล
+
+    # ดึงข้อมูล Steam
+    steam_data = get_steam_info(app_id)
+    
+    # ดึงรายชื่อไฟล์ใน ZIP
+    file_list = list_files_in_zip(app_id)
+
+    embed = nextcord.Embed(
+        title=f"🔎 รายชื่อไฟล์ใน ZIP สำหรับ App ID: {app_id}",
+        color=0x00FF00 if file_list else 0xFF0000
+    )
+
+    if steam_data:
+        embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
+        embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
+        embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
+        links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
+        if steam_data['has_denuvo']:
+            links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
+        embed.add_field(
+            name="Links", 
+            value=links_value, 
+            inline=False
+        )
+        
+        if steam_data['image']:
+            embed.set_image(url=steam_data['image'])
+            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+    else:
+        embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
+        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+
+    if file_list:
+        # แปลงรายชื่อไฟล์เป็นสตริง โดยเพิ่ม • นำหน้าแต่ละไฟล์
+        file_list_str = "\n".join([f"• {file}" for file in file_list])
+        embed.add_field(
+            name="📄 รายชื่อไฟล์ใน ZIP", 
+            value=f"✅ พบ **{len(file_list)}** ไฟล์\n{file_list_str}", 
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="📄 รายชื่อไฟล์ใน ZIP", 
+            value="❌ ไม่พบไฟล์ ZIP หรือเกิดข้อผิดพลาดในการดาวน์โหลด/แตกไฟล์", 
+            inline=False
+        )
+
+    await interaction.followup.send(embed=embed)
 
 # --- 6. Discord Events ---
 @bot.event
