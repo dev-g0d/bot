@@ -24,8 +24,8 @@ def keep_alive():
     
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
-BOT_NAME = "Igist"  # ชื่อบอทที่ใช้แท็ก
-BOT_PREFIX = "/"    # คำนำหน้าคำสั่ง
+BOT_NAME = "Igist"  # ชื่อบอทที่ใช้
+BOT_PREFIX = "/"    # คำนำหน้าคำสั่ง (สำหรับ slash command)
 
 # Intents
 intents = discord.Intents.default()
@@ -172,24 +172,24 @@ def check_file_status(app_id: str) -> str | None:
         return None
     return None
 
-# --- 5. Commands ---
-@bot.command()
-async def mode(ctx, *, mode_arg):
+# --- 5. Slash Commands ---
+@bot.slash_command(name="mode", description="เปิด/ปิดการทำงานของบอทในชาแนลนี้")
+async def mode(ctx, action: str):
     if ctx.author == ctx.guild.owner:  # ตรวจสอบว่าเป็นเจ้าของเซิร์ฟ
         global active_channel
-        if mode_arg.lower() == "activate":
+        if action.lower() == "activate":
             active_channel = ctx.channel
-            await ctx.reply("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น")
-        elif mode_arg.lower() == "deactivate":
+            await ctx.respond("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น", ephemeral=True)
+        elif action.lower() == "deactivate":
             if active_channel == ctx.channel:
                 active_channel = None
-                await ctx.reply("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้")
+                await ctx.respond("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้", ephemeral=True)
             else:
-                await ctx.reply("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!")
+                await ctx.respond("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!", ephemeral=True)
         else:
-            await ctx.reply("ใช้ /mode: activate หรือ /mode: deactivate เท่านั้น!")
+            await ctx.respond("เลือกได้แค่ 'activate' หรือ 'deactivate' เท่านั้น!", ephemeral=True)
     else:
-        await ctx.reply("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น")
+        await ctx.respond("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น", ephemeral=True)
 
 # --- 6. Discord Events ---
 @bot.event
