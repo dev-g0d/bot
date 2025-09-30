@@ -125,11 +125,11 @@ def get_steam_info(app_id):
     name_cmd = 'ไม่พบแอป'
     cmd_success = False
     try:
-        url = f"{STEAMCMD_API_URL}id={app_id}"  # ใช้ id= สำหรับ SteamCMD API
+        url = f"{STEAMCMD_API_URL}{app_id}"  # ใช้ URL เดิมจากโค้ดเก่า
         response = requests.get(url, timeout=7)
         response.raise_for_status()
         data = response.json()
-        if data and 'data' in data and app_id in data['data']:
+        if data and data.get('status') == 'success' and app_id in data['data']:
             app_data = data['data'][app_id]
             common = app_data.get('common', {})
             extended = app_data.get('extended', {})
