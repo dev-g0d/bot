@@ -173,7 +173,7 @@ def check_file_status(app_id: str) -> str | None:
 
 # --- 5. Slash Commands ---
 @bot.slash_command(name="mode", description="เปิด/ปิดการทำงานของบอทในชาแนลนี้")
-async def mode(ctx, action: str = nextcord.SlashOption(
+async def mode(interaction: nextcord.Interaction, action: str = nextcord.SlashOption(
     name="action",
     description="เลือกโหมด",
     choices={
@@ -182,19 +182,19 @@ async def mode(ctx, action: str = nextcord.SlashOption(
     },
     required=True
 )):
-    if ctx.author == ctx.guild.owner:  # ตรวจสอบว่าเป็นเจ้าของเซิร์ฟ
+    if interaction.user == interaction.guild.owner:  # ตรวจสอบว่าเป็นเจ้าของเซิร์ฟ
         global active_channel
         if action.lower() == "activate":
-            active_channel = ctx.channel
-            await ctx.send("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น", ephemeral=True)
+            active_channel = interaction.channel
+            await interaction.response.send_message("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น", ephemeral=True)
         elif action.lower() == "deactivate":
-            if active_channel == ctx.channel:
+            if active_channel == interaction.channel:
                 active_channel = None
-                await ctx.send("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้", ephemeral=True)
+                await interaction.response.send_message("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้", ephemeral=True)
             else:
-                await ctx.send("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!", ephemeral=True)
+                await interaction.response.send_message("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!", ephemeral=True)
     else:
-        await ctx.send("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น", ephemeral=True)
+        await interaction.response.send_message("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น", ephemeral=True)
 
 # --- 6. Discord Events ---
 @bot.event
