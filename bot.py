@@ -198,6 +198,61 @@ async def mode(interaction: nextcord.Interaction, action: str = nextcord.SlashOp
     else:
         await interaction.response.send_message("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น", ephemeral=True)
 
+@bot.slash_command(name="appid_url", description="ค้นหาข้อมูล Steam จาก App ID หรือ URL")
+async def appid_url(interaction: nextcord.Interaction, input_value: str = nextcord.SlashOption(
+    name="input",
+    description="ใส่ App ID หรือ URL (เช่น 730 หรือ https://store.steampowered.com/app/730/)",
+    required=True
+)):
+    app_id = extract_app_id(input_value)
+    if not app_id:
+        await interaction.response.send_message("ไม่พบ App ID ในข้อมูลที่ให้มา!", ephemeral=True)
+        return
+
+    await interaction.response.defer()  # แสดงว่ากำลังประมวลผล
+    steam_data = get_steam_info(app_id)
+    file_url_200 = check_file_status(app_id) 
+    
+    embed = nextcord.Embed(
+        title=f"🔎 ข้อมูล Steam App ID: {app_id}",
+        color=0x00FF00 if file_url_200 else 0xFF0000
+    )
+    
+    if steam_data:
+        embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
+        embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
+        embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
+        links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
+        if steam_data['has_denuvo']:
+            links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
+        embed.add_field(
+            name="Links", 
+            value=links_value, 
+            inline=False
+        )
+        
+        if steam_data['image']:
+            embed.set_image(url=steam_data['image'])
+            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+    else:
+        embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
+        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        
+    if file_url_200:
+        embed.add_field(
+            name="", 
+            value=f"**📦 สถานะ:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="📦 สถานะ: ❌ ไม่พบไฟล์", 
+            value="", 
+            inline=False
+        )
+    
+    await interaction.followup.send(embed=embed)
+
 # --- 6. Discord Events ---
 @bot.event
 async def on_ready():
