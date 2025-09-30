@@ -158,6 +158,7 @@ def get_steam_info(app_id):
         'name': name,
         'image': header_image,
         'dlc_count': dlc_count,
+        'release_date': release_date_thai,
         'has_denuvo': has_denuvo,
     }
 
@@ -292,7 +293,7 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
 @bot.slash_command(name="check_lua", description="ดึงไฟล์ .lua จาก App ID")
 async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.SlashOption(
     name="appid",
-    description="ใส่ App ID (เช่น 1941540)",
+    description="ใส่ App ID (เช่น 2947440)",
     required=True
 )):
     if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
@@ -351,7 +352,7 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
 @bot.slash_command(name="check_file", description="ตรวจสอบรายชื่อไฟล์ใน ZIP จาก App ID")
 async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.SlashOption(
     name="appid",
-    description="ใส่ App ID (เช่น 1941540)",
+    description="ใส่ App ID (เช่น 2947440)",
     required=True
 )):
     if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
