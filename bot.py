@@ -24,10 +24,8 @@ def keep_alive():
     
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
-ALLOWED_CHANNEL_ID = 1098314625646329966  
-DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
-STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
-STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
+BOT_NAME = "Igist"  # ชื่อบอทที่ใช้แท็ก
+BOT_PREFIX = "/"    # คำนำหน้าคำสั่ง
 
 # Intents
 intents = discord.Intents.default()
@@ -35,9 +33,12 @@ intents.messages = True
 intents.message_content = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 
-# --- 3. Helper Functions ---
+# --- 3. Global Variables ---
+active_channel = None  # เริ่มต้นเป็น None ไม่ทำงานชาแนลไหน
+
+# --- 4. Helper Functions ---
 def extract_app_id(message_content):
     if message_content.isdigit():
         return message_content
@@ -171,7 +172,26 @@ def check_file_status(app_id: str) -> str | None:
         return None
     return None
 
-# --- 4. Discord Events ---
+# --- 5. Commands ---
+@bot.command()
+async def mode(ctx, *, mode_arg):
+    if ctx.author == ctx.guild.owner:  # ตรวจสอบว่าเป็นเจ้าของเซิร์ฟ
+        global active_channel
+        if mode_arg.lower() == "activate":
+            active_channel = ctx.channel
+            await ctx.reply("โหมดเปิดใช้งานแล้ว! บอทจะทำงานในชาแนลนี้เท่านั้น")
+        elif mode_arg.lower() == "deactivate":
+            if active_channel == ctx.channel:
+                active_channel = None
+                await ctx.reply("โหมดปิดใช้งานแล้ว! บอทจะไม่ทำงานในชาแนลนี้")
+            else:
+                await ctx.reply("บอทไม่ได้เปิดใช้งานในชาแนลนี้อยู่แล้ว!")
+        else:
+            await ctx.reply("ใช้ /mode: activate หรือ /mode: deactivate เท่านั้น!")
+    else:
+        await ctx.reply("คุณไม่มีสิทธิ์ใช้คำสั่งนี้! เฉพาะเจ้าของเซิร์ฟเท่านั้น")
+
+# --- 6. Discord Events ---
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
@@ -183,12 +203,17 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    if message.channel.id != ALLOWED_CHANNEL_ID:
-        return  # Ignore all activity if not in allowed channel
+    global active_channel
+    if active_channel is None or message.channel != active_channel:
+        return  # ไม่ทำงานถ้าไม่มีชาแนลที่ activate หรือไม่ใช่ชาแนลที่ activate
+
+    if message.content.startswith(BOT_PREFIX):
+        await bot.process_commands(message)  # ปล่อยให้คำสั่งทำงาน
+        return
 
     app_id = extract_app_id(message.content)
     if app_id:
-        await message.channel.typing()  # Show typing indicator only in allowed channel
+        await message.channel.typing()  # Show typing indicator only in active channel
         steam_data = get_steam_info(app_id)
         file_url_200 = check_file_status(app_id) 
         
@@ -232,7 +257,7 @@ async def on_message(message):
         
         await message.reply(embed=embed)
 
-# --- 5. Main Execution ---
+# --- 7. Main Execution ---
 if __name__ == '__main__':
     keep_alive() 
     try:
