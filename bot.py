@@ -158,7 +158,6 @@ def get_steam_info(app_id):
         'name': name,
         'image': header_image,
         'dlc_count': dlc_count,
-        'release_date': release_date_thai,
         'has_denuvo': has_denuvo,
     }
 
@@ -293,7 +292,7 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
 @bot.slash_command(name="check_lua", description="ดึงไฟล์ .lua จาก App ID")
 async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.SlashOption(
     name="appid",
-    description="ใส่ App ID (เช่น 2947440)",
+    description="ใส่ App ID (เช่น 1941540)",
     required=True
 )):
     if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
@@ -320,15 +319,8 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
     if steam_data:
         embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
         embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
-        embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
-        links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
         if steam_data['has_denuvo']:
-            links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
-        embed.add_field(
-            name="Links", 
-            value=links_value, 
-            inline=False
-        )
+            embed.add_field(name="⚠️ Denuvo", value="ตรวจพบการป้องกัน Denuvo", inline=True)
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
@@ -359,7 +351,7 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
 @bot.slash_command(name="check_file", description="ตรวจสอบรายชื่อไฟล์ใน ZIP จาก App ID")
 async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.SlashOption(
     name="appid",
-    description="ใส่ App ID (เช่น 2947440)",
+    description="ใส่ App ID (เช่น 1941540)",
     required=True
 )):
     if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
@@ -386,15 +378,8 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
     if steam_data:
         embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
         embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
-        embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
-        links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
         if steam_data['has_denuvo']:
-            links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
-        embed.add_field(
-            name="Links", 
-            value=links_value, 
-            inline=False
-        )
+            embed.add_field(name="⚠️ Denuvo", value="ตรวจพบการป้องกัน Denuvo", inline=True)
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
