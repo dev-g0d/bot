@@ -36,6 +36,9 @@ intents.message_content = True
 intents.guilds = True
 intents.members = True  # เพิ่ม intents สำหรับดึงข้อมูลสมาชิก
 
+# กำหนด guild ID (ต้องใส่ ID ของเซิร์ฟเวอร์ที่ต้องการใช้ bot)
+GUILD_ID = 943658416122003566  # เปลี่ยนเป็น guild ID จริงของมึง!
+
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- 3. Helper Functions ---
@@ -173,7 +176,7 @@ def check_file_status(app_id: str) -> str | None:
     return None
 
 # --- 5. Slash Commands ---
-@bot.slash_command(name="appid_url", description="ค้นหาข้อมูล Steam จาก App ID หรือ URL")
+@bot.slash_command(name="appid_url", description="ค้นหาข้อมูล Steam จาก App ID หรือ URL", guild_ids=[GUILD_ID])
 async def appid_url(interaction: nextcord.Interaction, input_value: str = nextcord.SlashOption(
     name="input",
     description="ใส่ App ID หรือ URL (เช่น 730 หรือ https://store.steampowered.com/app/730/)",
