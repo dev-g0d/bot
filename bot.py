@@ -262,13 +262,13 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
         if steam_data['dlc_count'] > 0:
             embed.add_field(
                 name="",
-                value=f"✅ พบ DLC\n(ไม่ทราบจำนวนที่พบและสูญหาย)",
+                value=f"📦 สถานะ DLC: ✅ พบ DLC\n(ไม่ทราบจำนวนDLCที่พบและสูญหาย)",
                 inline=False
             )
         else:
             embed.add_field(
                 name="",
-                value="ℹ️ไม่พบ DLC",
+                value="📦 สถานะ DLC: ℹ️ ไม่พบ DLC",
                 inline=False
             )
         embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
@@ -333,13 +333,13 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
         if steam_data['dlc_count'] > 0:
             embed.add_field(
                 name="",
-                value=f"✅ พบ DLC\n(ไม่ทราบจำนวนที่พบและสูญหาย)",
+                value=f"📦 สถานะ DLC: ✅ พบ DLC\n(ไม่ทราบจำนวนDLCที่พบและสูญหาย)",
                 inline=False
             )
         else:
             embed.add_field(
                 name="",
-                value="ℹ️ไม่พบ DLC",
+                value="📦 สถานะ DLC: ℹ️ไม่พบ DLC",
                 inline=False
             )
         
@@ -409,7 +409,7 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
         else:
             embed.add_field(
                 name="",
-                value="📦 สถานะ DLC: ℹ️ไม่พบ DLC",
+                value="📦 สถานะ DLC: ℹ️ ไม่พบ DLC",
                 inline=False
             )
         
