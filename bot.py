@@ -125,6 +125,9 @@ def fetch_morrenus_info(app_id):
 def get_steam_info(app_id):
     # 1. ลองดึงจาก Morrenus ก่อน (แค่ JSON ไม่มีไฟล์)
     morrenus_data = fetch_morrenus_info(app_id)
+    release_date_thai = 'ไม่ระบุ'  # Default value
+    has_denuvo = False
+
     if morrenus_data:
         # ดึงข้อมูลจาก Morrenus และคำนวณ DLC ตามที่มึงอยากได้
         dlc_status = morrenus_data.get('dlc_status', {})
@@ -139,15 +142,15 @@ def get_steam_info(app_id):
             'dlc_count': total_dlc,
             'included_dlc': included_dlc,  # จำนวนที่พบ
             'missing_dlc': missing_dlc,    # จำนวนที่สูญหาย
+            'release_date': release_date_thai,  # ยังไม่กำหนด จะดึงจาก Steam ด้านล่าง
+            'has_denuvo': has_denuvo,
         }
 
-    # 2. ถ้า Morrenus ไม่ได้ ค่อย fallback ไป Steam แบบเดิม
+    # 2. ถ้า Morrenus ไม่ได้ หรือเพื่อดึง release_date และ has_denuvo จาก Steam
     header_image_store = None
     name_store = None
     dlc_count_store = 0
-    release_date_thai = 'ไม่ระบุ'
     store_success = False
-    has_denuvo = False
     drm_notice = ""
 
     try:
@@ -191,20 +194,19 @@ def get_steam_info(app_id):
         print(f"SteamCMD fetch error: {e}")
 
     # --- รวมข้อมูล: prioritize Store สำหรับส่วนใหญ่ แต่ DLC prioritize CMD ถ้ามี ---
-    name = name_store if store_success else name_cmd
-    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store
-    header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
-    release_date = release_date_thai if store_success else 'ไม่ระบุ'
-
-    if not name:
-        return None
+    name = morrenus_data.get('name', name_store if store_success else name_cmd)
+    dlc_count = morrenus_data.get('total_dlc', dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store)
+    header_image = morrenus_data.get('header_image', header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None))
+    developer = morrenus_data.get('developer', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
 
     return {
         'name': name,
-        'developer': 'ไม่ระบุ',  # ถ้าไม่มี Morrenus จะเป็นแบบนี้
+        'developer': developer,
         'image': header_image,
-        'dlc_count': dlc_count,
-        'release_date': release_date,
+        'dlc_count': dlc_count if morrenus_data else dlc_count,
+        'included_dlc': morrenus_data.get('included_dlc', 0) if morrenus_data else 0,
+        'missing_dlc': morrenus_data.get('missing_dlc', 0) if morrenus_data else (dlc_count - 0) if dlc_count > 0 else 0,
+        'release_date': release_date_thai,
         'has_denuvo': has_denuvo,
     }
 
