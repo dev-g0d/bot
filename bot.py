@@ -466,7 +466,6 @@ async def info(interaction: nextcord.Interaction):
     embed.add_field(name="", value=f"📦 DLC ทั้งหมด:{total_dlc}", inline=False)
     embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด:{total_combined}", inline=False)
     embed.add_field(name="", value=f"📊 Status:{status_text}", inline=False)
-    embed.add_field(name="🔗 Website", value="https://manifest.morrenus.xyz", inline=False)
 
     embed.set_footer(text="discord • DEV/g0d")
 
