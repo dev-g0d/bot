@@ -1,5 +1,5 @@
 import nextcord
-from nextcord.ext = commands
+from nextcord.ext import commands
 import requests
 import re
 import os
