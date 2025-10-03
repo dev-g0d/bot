@@ -312,13 +312,13 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
             if steam_data['dlc_count'] > 0:
                 embed.add_field(
                     name="📦 DLCs ทั้งหมด",
-                    value=f"({steam_data['dlc_count']} รายการ) ✅ พบ {steam_data.get('included_dlc', 0)} รายการ ❌ สูญหาย {steam_data.get('missing_dlc', 0)} รายการ",
+                    value=f"( {steam_data['dlc_count']} รายการ)\n✅ พบ {steam_data.get('included_dlc', 0)} รายการ\n❌ สูญหาย {steam_data.get('missing_dlc', 0)} รายการ",
                     inline=False
                 )
             else:
                 embed.add_field(
                     name="📦 DLCs ทั้งหมด",
-                    value="(0 รายการ) ℹ️ไม่พบ DLC",
+                    value="(0 รายการ)\nℹ️ไม่พบ DLC",
                     inline=False
                 )
         embed.add_field(name="วันวางจำหน่าย", value=steam_data.get('release_date', 'ไม่ระบุ'), inline=False)
