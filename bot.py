@@ -309,13 +309,18 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
             embed.add_field(name="ผู้พัฒนา", value=steam_data['developer'], inline=False)
         # แสดง DLC ตามฟอร์แมตใหม่ที่มึงขอ
         if 'dlc_count' in steam_data:
-            embed.add_field(
-                name="📦 DLCs ทั้งหมด",
-                value=f"({steam_data['dlc_count']} รายการ)\n✅ พบ {steam_data.get('included_dlc', 0)} รายการ\n❌ สูญหาย {steam_data.get('missing_dlc', 0)} รายการ",
-                inline=False
-            )
-        else:
-            embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
+            if steam_data['dlc_count'] > 0:
+                embed.add_field(
+                    name="📦 DLCs ทั้งหมด",
+                    value=f"({steam_data['dlc_count']} รายการ) ✅ พบ {steam_data.get('included_dlc', 0)} รายการ ❌ สูญหาย {steam_data.get('missing_dlc', 0)} รายการ",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="📦 DLCs ทั้งหมด",
+                    value="(0 รายการ) ℹ️ไม่พบ DLC",
+                    inline=False
+                )
         embed.add_field(name="วันวางจำหน่าย", value=steam_data.get('release_date', 'ไม่ระบุ'), inline=False)
         links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
         if steam_data['has_denuvo']:
