@@ -454,7 +454,11 @@ async def info(interaction: nextcord.Interaction):
 
     total_apps = morrenus_data.get('total', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
     total_dlc = morrenus_data.get('total_dlc', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
-    total_combined = int(total_apps) + int(total_dlc) if morrenus_data and total_apps.isdigit() and total_dlc.isdigit() else 'ไม่ระบุ'
+    # แก้ไขการเช็ก type โดยไม่ใช้ .isdigit()
+    if morrenus_data and isinstance(total_apps, (int, float)) and isinstance(total_dlc, (int, float)):
+        total_combined = total_apps + total_dlc
+    else:
+        total_combined = 'ไม่ระบุ'
     status_text = "🟢 ทำงาน" if status else "🔴 ไม่ทำงาน"
 
     embed.add_field(name="📦 แอปทั้งหมด:", value=total_apps, inline=False)
