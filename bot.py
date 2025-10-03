@@ -128,25 +128,7 @@ def get_steam_info(app_id):
     release_date_thai = 'ไม่ระบุ'  # Default value
     has_denuvo = False
 
-    if morrenus_data:
-        # ดึงข้อมูลจาก Morrenus และคำนวณ DLC ตามที่มึงอยากได้
-        dlc_status = morrenus_data.get('dlc_status', {})
-        total_dlc = dlc_status.get('total_dlc', 0)
-        included_dlc = dlc_status.get('included_dlc', 0)
-        missing_dlc = total_dlc - included_dlc  # คำนวณสูญหาย
-
-        return {
-            'name': morrenus_data.get('name', 'ไม่พบแอป'),
-            'developer': morrenus_data.get('developer', 'ไม่ระบุ'),  # เพิ่มผู้พัฒนา
-            'image': morrenus_data.get('header_image'),
-            'dlc_count': total_dlc,
-            'included_dlc': included_dlc,  # จำนวนที่พบ
-            'missing_dlc': missing_dlc,    # จำนวนที่สูญหาย
-            'release_date': release_date_thai,  # ยังไม่กำหนด จะดึงจาก Steam ด้านล่าง
-            'has_denuvo': has_denuvo,
-        }
-
-    # 2. ถ้า Morrenus ไม่ได้ หรือเพื่อดึง release_date และ has_denuvo จาก Steam
+    # 2. ดึงข้อมูลจาก Steam เสมอเพื่อให้ได้ release_date และ has_denuvo
     header_image_store = None
     name_store = None
     dlc_count_store = 0
@@ -171,6 +153,25 @@ def get_steam_info(app_id):
     except requests.RequestException as e:
         print(f"Steam Store fetch error: {e}")
 
+    # 3. ถ้ามี Morrenus ใช้ข้อมูลจาก Morrenus เป็นหลักสำหรับบางส่วน
+    if morrenus_data:
+        dlc_status = morrenus_data.get('dlc_status', {})
+        total_dlc = dlc_status.get('total_dlc', 0)
+        included_dlc = dlc_status.get('included_dlc', 0)
+        missing_dlc = total_dlc - included_dlc
+
+        return {
+            'name': morrenus_data.get('name', name_store),
+            'developer': morrenus_data.get('developer', 'ไม่ระบุ'),
+            'image': morrenus_data.get('header_image', header_image_store),
+            'dlc_count': total_dlc,
+            'included_dlc': included_dlc,
+            'missing_dlc': missing_dlc,
+            'release_date': release_date_thai,
+            'has_denuvo': has_denuvo,
+        }
+
+    # 4. ถ้าไม่มี Morrenus ใช้ข้อมูลจาก Steam
     header_image_hash = None
     dlc_count_cmd = 0
     name_cmd = 'ไม่พบแอป'
@@ -193,19 +194,18 @@ def get_steam_info(app_id):
     except requests.RequestException as e:
         print(f"SteamCMD fetch error: {e}")
 
-    # --- รวมข้อมูล: prioritize Store สำหรับส่วนใหญ่ แต่ DLC prioritize CMD ถ้ามี ---
-    name = morrenus_data.get('name', name_store if store_success else name_cmd)
-    dlc_count = morrenus_data.get('total_dlc', dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store)
-    header_image = morrenus_data.get('header_image', header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None))
-    developer = morrenus_data.get('developer', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
+    # --- รวมข้อมูลจาก Steam ---
+    name = name_store if store_success else name_cmd
+    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store
+    header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
 
     return {
         'name': name,
-        'developer': developer,
+        'developer': 'ไม่ระบุ',
         'image': header_image,
-        'dlc_count': dlc_count if morrenus_data else dlc_count,
-        'included_dlc': morrenus_data.get('included_dlc', 0) if morrenus_data else 0,
-        'missing_dlc': morrenus_data.get('missing_dlc', 0) if morrenus_data else (dlc_count - 0) if dlc_count > 0 else 0,
+        'dlc_count': dlc_count,
+        'included_dlc': 0,  # Default ถ้าไม่มี Morrenus
+        'missing_dlc': dlc_count if dlc_count > 0 else 0,  # Default ถ้าไม่มี Morrenus
         'release_date': release_date_thai,
         'has_denuvo': has_denuvo,
     }
@@ -316,7 +316,7 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
             )
         else:
             embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
-        embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
+        embed.add_field(name="วันวางจำหน่าย", value=steam_data.get('release_date', 'ไม่ระบุ'), inline=False)
         links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
         if steam_data['has_denuvo']:
             links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
