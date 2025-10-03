@@ -279,10 +279,10 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d")
+            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d")
+        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
         
     if file_url_200:
         embed.add_field(
@@ -345,10 +345,10 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d")
+            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d")
+        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
 
     if lua_file_path and lua_file_name:
         embed.add_field(
@@ -415,10 +415,10 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d")
+            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d")
+        embed.set_footer(text="discord • DEV/g0d • Morrenus")
 
     if file_list:
         file_list_str = "\n".join([f"• {file}" for file in file_list])
@@ -467,7 +467,7 @@ async def info(interaction: nextcord.Interaction):
     embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด:{total_combined}", inline=False)
     embed.add_field(name="", value=f"📊 Status:{status_text}", inline=False)
 
-    embed.set_footer(text="discord • DEV/g0d")
+    embed.set_footer(text="Discord • DEV/g0d • Morrenus")
 
     await interaction.followup.send(embed=embed)
 
