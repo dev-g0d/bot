@@ -31,7 +31,6 @@ ALLOWED_CHANNEL_IDS = [1098314625646329966, 1422199765818413116]  # รองร
 DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"  # ใช้ส่ง URL ให้ยูเซอร์
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
-MORRENUS_API_URL = "https://manifest.morrenus.xyz/api/game/"  # เก็บไว้แต่ไม่ใช้
 MORRENUS_GAMES_URL = "https://manifest.morrenus.xyz/api/games?t=0"  # URL สำหรับ /info
 
 # Intents
@@ -95,33 +94,6 @@ def fetch_release_date_from_store_data(store_data: dict) -> str:
         if eng_month in raw_date:
             return raw_date.replace(eng_month, th_month)
     return raw_date
-
-def fetch_morrenus_info(app_id):
-    # เก็บไว้แต่ไม่ใช้ใน logic หลัก
-    url = f"{MORRENUS_API_URL}{app_id}"
-    headers = {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Cache-Control': 'max-age=0',
-        'Sec-Ch-Ua': '"Chromium";v="140", "Not_A Brand";v="24", "Google Chrome";v="140"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-        'Cookie': os.environ.get("MORRENUS_COOKIE", "session=eyJhY2Nlc3NfdG9rZW4iOiAiZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SjFjMlZ5WDJsa0lqb2lNVEkzTmprMk1qVXlNek15TkRZeE5qZzBNU0lzSW5WelpYSnVZVzFsSWpvaU9XY3daQ0lzSW1ScGMyTnlhVzFwYm1GMGIzSWlPaUl3SWl3aVlYWmhkR0Z5SWpvaU1qSTRPVFUyTURWbVltWmhZVEptTkROaVpXRmtZamMyWVdJek1tWTNZekFpTENKb2FXZG9aWE4wWDNKdmJHVWlPaUpUYjNCb2FXVWdkR2hsSUVOaGRDSXNJbkp2YkdWZmJHbHRhWFFpT2pJMUxDSnliMnhsWDJ4bGRtVnNJam94TENKaGJHeGZjbTlzWlhNaU9sc2lSMkZ0WlNCT1pYZHpJaXdpUVc1dWIzVnVZMlZ0Wlc1MGN5SXNJbE52Y0docFpTQjBhR1VnUTJGMElsMHNJbVY0Y0NJNk1UYzFPVFUwTkRBNE0zMC5JR3N4VVY1ZGFaZUlsdlBLZ1g0aGN2Sm01MVZtVHd3ek1ZYUtoQ3JGbEdFIn0=.aN8zZw.oHnSL1QtpzM31BggieAKzO49i5U")
-    }
-
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        print(f"Morrenus fetch error: {e}")
-        return None
 
 def get_steam_info(app_id):
     # ใช้ fetch แบบเก่า จาก Steam Store เท่านั้น
@@ -307,10 +279,10 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="discord • DEV/g0d")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="discord • DEV/g0d")
         
     if file_url_200:
         embed.add_field(
@@ -373,10 +345,10 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="discord • DEV/g0d")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="discord • DEV/g0d")
 
     if lua_file_path and lua_file_name:
         embed.add_field(
@@ -443,10 +415,10 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="discord • DEV/g0d")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="discord • DEV/g0d")
 
     if file_list:
         file_list_str = "\n".join([f"• {file}" for file in file_list])
@@ -482,13 +454,15 @@ async def info(interaction: nextcord.Interaction):
 
     total_apps = morrenus_data.get('total', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
     total_dlc = morrenus_data.get('total_dlc', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
+    total_combined = int(total_apps) + int(total_dlc) if morrenus_data and total_apps.isdigit() and total_dlc.isdigit() else 'ไม่ระบุ'
     status_text = "🟢 ทำงาน" if status else "🔴 ไม่ทำงาน"
 
-    embed.add_field(name="📦 แอปทั้งหมด", value=total_apps, inline=False)
-    embed.add_field(name="📦 DLC ทั้งหมด", value=total_dlc, inline=False)
-    embed.add_field(name="Status", value=status_text, inline=False)
-    embed.add_field(name="🔗 Website", value="https://manifest.morrenus.xyz", inline=False)
-    embed.set_footer(text="discord • DEV/g0d • Morrenus")
+    embed.add_field(name="📦 แอปทั้งหมด:", value=total_apps, inline=False)
+    embed.add_field(name="📦 DLC ทั้งหมด:", value=total_dlc, inline=False)
+    embed.add_field(name="📦 รวมแอปทั้งหมด:", value=total_combined, inline=False)
+    embed.add_field(name="📊 Status:", value=status_text, inline=False)
+    embed.add_field(name="🔗 (Website)", value="[https://manifest.morrenus.xyz/](https://manifest.morrenus.xyz/)", inline=False)
+    embed.set_footer(text="discord • DEV/g0d")
 
     await interaction.followup.send(embed=embed)
 
