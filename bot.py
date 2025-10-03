@@ -28,10 +28,10 @@ def keep_alive():
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
 ALLOWED_CHANNEL_IDS = [1098314625646329966, 1422199765818413116]  # รองรับหลายชาแนล
-DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"  # ยังคงไว้ตามเดิม มึงใช้ส่ง URL ให้ยูเซอร์
+DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"  # ใช้ส่ง URL ให้ยูเซอร์
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
-MORRENUS_API_URL = "https://manifest.morrenus.xyz/api/game/"  # เพิ่ม URL สำหรับ Morrenus
+MORRENUS_API_URL = "https://manifest.morrenus.xyz/api/game/"  # URL สำหรับ Morrenus
 
 # Intents
 intents = nextcord.Intents.default()
@@ -111,7 +111,7 @@ def fetch_morrenus_info(app_id):
         'Sec-Fetch-User': '?1',
         'Upgrade-Insecure-Requests': '1',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-        'Cookie': os.environ.get("MORRENUS_COOKIE", "session=eyJhY2Nlc3NfdG9rZW4iOiAiZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SjFjMlZ5WDJsa0lqb2lNVEkzTmprMk1qVXlNek15TkRZeE5qZzBNU0lzSW5WelpYSnVZVzFsSWpvaU9XY3daQ0lzSW1ScGMyTnlhVzFwYm1GMGIzSWlPaUl3SWl3aVlYWmhkR0Z5SWpvaU1qSTRPVFUyTURWbVltWmhZVEptTkROaVpXRmtZamMyWVdJek1tWTNZekFpTENKb2FXZG9aWE4wWDNKdmJHVWlPaUpUYjNCb2FXVWdkR2hsSUVOaGRDSXNJbkp2YkdWZmJHbHRhWFFpT2pJMUxDSnliMnhsWDJ4bGRtVnNJam94TENKaGJHeGZjbTlzWlhNaU9sc2lSMkZ0WlNCT1pYZHpJaXdpUVc1dWIzVnVZMlZ0Wlc1MGN5SXNJbE52Y0docFpTQjBhR1VnUTJGMElsMHNJbVY0Y0NJNk1UYzFPVFUwTkRBNE0zMC5JR3N4VVY1ZGFaZUlsdlBLZ1g0aGN2Sm01MVZtVHd3ek1ZYUtoQ3JGbEdFIn0=.aN8zZw.oHnSL1QtpzM31BggieAKzO49i5U")  # ใช้ cookie จาก env หรือ hardcode ถ้าหมดอายุไปอัปเดตใหม่
+        'Cookie': os.environ.get("MORRENUS_COOKIE", "session=eyJhY2Nlc3NfdG9rZW4iOiAiZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SjFjMlZ5WDJsa0lqb2lNVEkzTmprMk1qVXlNek15TkRZeE5qZzBNU0lzSW5WelpYSnVZVzFsSWpvaU9XY3daQ0lzSW1ScGMyTnlhVzFwYm1GMGIzSWlPaUl3SWl3aVlYWmhkR0Z5SWpvaU1qSTRPVFUyTURWbVltWmhZVEptTkROaVpXRmtZamMyWVdJek1tWTNZekFpTENKb2FXZG9aWE4wWDNKdmJHVWlPaUpUYjNCb2FXVWdkR2hsSUVOaGRDSXNJbkp2YkdWZmJHbHRhWFFpT2pJMUxDSnliMnhsWDJ4bGRtVnNJam94TENKaGJHeGZjbTlzWlhNaU9sc2lSMkZ0WlNCT1pYZHpJaXdpUVc1dWIzVnVZMlZ0Wlc1MGN5SXNJbE52Y0docFpTQjBhR1VnUTJGMElsMHNJbVY0Y0NJNk1UYzFPVFUwTkRBNE0zMC5JR3N4VVY1ZGFaZUlsdlBLZ1g0aGN2Sm01MVZtVHd3ek1ZYUtoQ3JGbEdFIn0=.aN8zZw.oHnSL1QtpzM31BggieAKzO49i5U")
     }
 
     try:
@@ -126,16 +126,28 @@ def get_steam_info(app_id):
     # 1. ลองดึงจาก Morrenus ก่อน (แค่ JSON ไม่มีไฟล์)
     morrenus_data = fetch_morrenus_info(app_id)
     if morrenus_data:
-        # แมปข้อมูลจาก Morrenus ตามตัวอย่าง JSON มึง
-        release_date_thai = morrenus_data.get('last_modified', 'ไม่ระบุ')  # ใช้ last_modified เป็น release_date
+        # ดึงข้อมูลจาก Morrenus และคำนวณ DLC ตามที่มึงอยากได้
+        dlc_status = morrenus_data.get('dlc_status', {})
+        total_dlc = dlc_status.get('total_dlc', 0)
+        included_dlc = dlc_status.get('included_dlc', 0)
+        excluded_dlc = dlc_status.get('excluded_dlc', 0)
+        missing_keys = dlc_status.get('missing_keys', 0)
+        coming_soon = dlc_status.get('coming_soon', 0)
+
+        # คำนวณ "สูญหาย" ตามที่มึงเห็นในภาพ (total_dlc - included_dlc)
+        missing_dlc = total_dlc - included_dlc
+
+        release_date_thai = morrenus_data.get('last_modified', 'ไม่ระบุ')
         return {
             'name': morrenus_data.get('name', 'ไม่พบแอป'),
+            'developer': morrenus_data.get('developer', 'ไม่ระบุ'),  # เพิ่มผู้พัฒนา
             'image': morrenus_data.get('header_image'),
-            'dlc_count': morrenus_data.get('total_dlc', 0),
+            'dlc_count': total_dlc,
+            'included_dlc': included_dlc,  # จำนวนที่พบ
+            'missing_dlc': missing_dlc,    # จำนวนที่สูญหาย
             'release_date': release_date_thai,
             'has_denuvo': False,  # Morrenus ไม่มี field นี้ ถ้าอยากเช็กเพิ่มต้องเพิ่ม logic
-            'developer': morrenus_data.get('developer', 'ไม่ระบุ'),  # เพิ่ม field ใหม่จาก Morrenus
-            'file_size': morrenus_data.get('file_size', 0)  # เพิ่มถ้ามึงอยากแสดง
+            'file_size': morrenus_data.get('file_size', 0)  # เพิ่มขนาดไฟล์
         }
 
     # 2. ถ้า Morrenus ไม่ได้ ค่อย fallback ไป Steam แบบเดิม
@@ -179,18 +191,17 @@ def get_steam_info(app_id):
             common = app_data.get('common', {})
             extended = app_data.get('extended', {})
             cmd_success = True
-
             name_cmd = common.get('name', 'ไม่พบแอป')
             header_image_hash = common.get('header_image', {}).get('english')
             dlc_list_str = extended.get('listofdlc', '')
             dlc_items = [item.strip() for item in dlc_list_str.split(',') if item.strip()]
-            dlc_count_cmd = len(dlc_items)  # ดึง DLC จาก listofdlc โดยตรง
+            dlc_count_cmd = len(dlc_items)
     except requests.RequestException as e:
         print(f"SteamCMD fetch error: {e}")
 
     # --- รวมข้อมูล: prioritize Store สำหรับส่วนใหญ่ แต่ DLC prioritize CMD ถ้ามี ---
     name = name_store if store_success else name_cmd
-    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store  # ใช้ DLC จาก SteamCMD ถ้ามี
+    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store
     header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
 
     if not name:
@@ -205,7 +216,7 @@ def get_steam_info(app_id):
     }
 
 def check_file_status(app_id: str) -> str | None:
-    url = f"{DEVGOD_BASE_URL}{app_id}"  # ยังคงใช้ DEVGOD ตามเดิม เพราะมึงบอกว่าส่วนนี้แยกจาก Morrenus
+    url = f"{DEVGOD_BASE_URL}{app_id}"  # ยังคงใช้ DEVGOD ตามเดิม
     headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
@@ -298,12 +309,19 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
     )
     
     if steam_data:
-        embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
-        embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
+        # แสดงชื่อแอปและผู้พัฒนาใน field เดียวกัน
+        embed.add_field(name="ชื่อแอป", value=f"{steam_data['name']} (ผู้พัฒนา: {steam_data.get('developer', 'ไม่ระบุ')})", inline=False)
+        # แสดง DLC ตาม format ที่มึงอยากได้
+        if 'dlc_count' in steam_data:
+            embed.add_field(
+                name="📦 DLCs ทั้งหมด",
+                value=f"{steam_data['dlc_count']} รายการ\n✅ พบ {steam_data.get('included_dlc', 0)} รายการ\n❌ สูญหาย {steam_data.get('missing_dlc', 0)} รายการ",
+                inline=False
+            )
+        else:
+            embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
         embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
-        # ถ้ามีข้อมูลจาก Morrenus เพิ่ม field เพิ่มเติม
-        if 'developer' in steam_data:
-            embed.add_field(name="ผู้พัฒนา", value=steam_data['developer'], inline=True)
+        # ถ้ามีขนาดไฟล์จาก Morrenus
         if 'file_size' in steam_data:
             embed.add_field(name="ขนาดไฟล์", value=f"{steam_data['file_size']} bytes", inline=True)
         links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
