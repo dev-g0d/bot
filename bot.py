@@ -287,12 +287,12 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
     if file_url_200:
         embed.add_field(
             name="", 
-            value=f"**📦 สถานะ:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
+            value=f"**📦 สถานะไฟล์:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
             inline=False
         )
     else:
         embed.add_field(
-            name="📦 สถานะ: ❌ ไม่พบไฟล์", 
+            name="📦 สถานะไฟล์: ❌ ไม่พบไฟล์", 
             value="", 
             inline=False
         )
@@ -403,13 +403,13 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
         if steam_data['dlc_count'] > 0:
             embed.add_field(
                 name="",
-                value=f"✅ พบ DLC\n(ไม่ทราบจำนวนที่พบและสูญหาย)",
+                value=f"📦 สถานะ DLC: ✅ พบ DLC\n(ไม่ทราบจำนวนDLCที่พบและสูญหาย)",
                 inline=False
             )
         else:
             embed.add_field(
                 name="",
-                value="ℹ️ไม่พบ DLC",
+                value="📦 สถานะ DLC: ℹ️ไม่พบ DLC",
                 inline=False
             )
         
