@@ -209,7 +209,7 @@ def fetch_morrenus_database():
         'Sec-Fetch-User': '?1',
         'Upgrade-Insecure-Requests': '1',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-        'Cookie': os.environ.get("MORRENUS_COOKIE", "session=eyJhY2Nlc3NfdG9rZW4iOiAiZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SjFjMlZ5WDJsa0lqb2lNVEkzTmprMk1qVXlNek15TkRZeE5qZzBNU0lzSW5WelpYSnVZVzFsSWpvaU9XY3daQ0lzSW1ScGMyTnlhVzFwYm1GMGIzSWlPaUl3SWl3aVlYWmhkR0Z5SWpvaU1qSTRPVFUyTURWbVltWmhZVEptTkROaVpXRmtZamMyWVdJek1tWTNZekFpTENKb2FXZG9aWE4wWDNKdmJHVWlPaUpUYjNCb2FXVWdkR2hsSUVOaGRDSXNJbkp2YkdWZmJHbHRhWFFpT2pJMUxDSnliMnhsWDJ4bGRtVnNJam94TENKaGJHeGZjbTlzWlhNaU9sc2lSMkZ0WlNCT1pYZHpJaXdpUVc1dWIzVnVZMlZ0Wlc1MGN5SXNJbE52Y0docFpTQjBhR1VnUTJGMElsMHNJbVY0Y0NJNk1UYzFPVFUwTkRBNE0zMC5JR3N4VVY1ZGFaZUlsdlBLZ1g0aGN2Sm01MVZtVHd3ek1ZYUtoQ3JGbEdFIn0=.aN8zZw.oHnSL1QtpzM31BggieAKzO49i5U")
+        'Cookie': os.environ.get("MORRENUS_COOKIE", "")
     }
 
     try:
