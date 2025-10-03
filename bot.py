@@ -130,14 +130,8 @@ def get_steam_info(app_id):
         dlc_status = morrenus_data.get('dlc_status', {})
         total_dlc = dlc_status.get('total_dlc', 0)
         included_dlc = dlc_status.get('included_dlc', 0)
-        excluded_dlc = dlc_status.get('excluded_dlc', 0)
-        missing_keys = dlc_status.get('missing_keys', 0)
-        coming_soon = dlc_status.get('coming_soon', 0)
+        missing_dlc = total_dlc - included_dlc  # คำนวณสูญหาย
 
-        # คำนวณ "สูญหาย" ตามที่มึงเห็นในภาพ (total_dlc - included_dlc)
-        missing_dlc = total_dlc - included_dlc
-
-        release_date_thai = morrenus_data.get('last_modified', 'ไม่ระบุ')
         return {
             'name': morrenus_data.get('name', 'ไม่พบแอป'),
             'developer': morrenus_data.get('developer', 'ไม่ระบุ'),  # เพิ่มผู้พัฒนา
@@ -145,9 +139,6 @@ def get_steam_info(app_id):
             'dlc_count': total_dlc,
             'included_dlc': included_dlc,  # จำนวนที่พบ
             'missing_dlc': missing_dlc,    # จำนวนที่สูญหาย
-            'release_date': release_date_thai,
-            'has_denuvo': False,  # Morrenus ไม่มี field นี้ ถ้าอยากเช็กเพิ่มต้องเพิ่ม logic
-            'file_size': morrenus_data.get('file_size', 0)  # เพิ่มขนาดไฟล์
         }
 
     # 2. ถ้า Morrenus ไม่ได้ ค่อย fallback ไป Steam แบบเดิม
@@ -203,15 +194,17 @@ def get_steam_info(app_id):
     name = name_store if store_success else name_cmd
     dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store
     header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
+    release_date = release_date_thai if store_success else 'ไม่ระบุ'
 
     if not name:
         return None
 
     return {
         'name': name,
+        'developer': 'ไม่ระบุ',  # ถ้าไม่มี Morrenus จะเป็นแบบนี้
         'image': header_image,
         'dlc_count': dlc_count,
-        'release_date': release_date_thai,
+        'release_date': release_date,
         'has_denuvo': has_denuvo,
     }
 
@@ -309,21 +302,19 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
     )
     
     if steam_data:
-        # แสดงชื่อแอปและผู้พัฒนาใน field เดียวกัน
-        embed.add_field(name="ชื่อแอป", value=f"{steam_data['name']} (ผู้พัฒนา: {steam_data.get('developer', 'ไม่ระบุ')})", inline=False)
-        # แสดง DLC ตาม format ที่มึงอยากได้
+        embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
+        if 'developer' in steam_data and steam_data['developer'] != 'ไม่ระบุ':
+            embed.add_field(name="ผู้พัฒนา", value=steam_data['developer'], inline=False)
+        # แสดง DLC ตามฟอร์แมตใหม่ที่มึงขอ
         if 'dlc_count' in steam_data:
             embed.add_field(
                 name="📦 DLCs ทั้งหมด",
-                value=f"{steam_data['dlc_count']} รายการ\n✅ พบ {steam_data.get('included_dlc', 0)} รายการ\n❌ สูญหาย {steam_data.get('missing_dlc', 0)} รายการ",
+                value=f"({steam_data['dlc_count']} รายการ)\n✅ พบ {steam_data.get('included_dlc', 0)} รายการ\n❌ สูญหาย {steam_data.get('missing_dlc', 0)} รายการ",
                 inline=False
             )
         else:
             embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
         embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
-        # ถ้ามีขนาดไฟล์จาก Morrenus
-        if 'file_size' in steam_data:
-            embed.add_field(name="ขนาดไฟล์", value=f"{steam_data['file_size']} bytes", inline=True)
         links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
         if steam_data['has_denuvo']:
             links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
