@@ -462,7 +462,7 @@ async def info(interaction: nextcord.Interaction):
     status_text = "🟢 ทำงาน" if status else "🔴 ไม่ทำงาน"
 
     # แก้ไขให้เป็นหลายบรรทัดตามตัวอย่าง และปรับ Website เป็น link
-    embed.add_field(name="", value=f"📦 แอปทั้งหมด:{total_apps}", inline=False)
+    embed.add_field(name="", value=f"📦 แอปหลักทั้งหมด:{total_apps}", inline=False)
     embed.add_field(name="", value=f"📦 DLC ทั้งหมด:{total_dlc}", inline=False)
     embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด:{total_combined}", inline=False)
     embed.add_field(name="", value=f"📊 Status:{status_text}", inline=False)
