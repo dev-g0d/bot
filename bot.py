@@ -217,7 +217,7 @@ def convert_download_url(url: str) -> tuple[str | None, str | None, str | None, 
     gofile_match = re.match(r"https://gofile\.io/d/([a-zA-Z0-9]+)", url)
     if gofile_match:
         file_id = gofile_match.group(1)
-        return f"https://gf.cybar.xyz/{file_id}", url, file_id, "🇬"
+        return f"https://gf.1drv.eu.org/{file_id}", url, file_id, "🇬"
     pixeldrain_match = re.match(r"https://pixeldrain\.com/u/([a-zA-Z0-9]+)", url)
     if pixeldrain_match:
         file_id = pixeldrain_match.group(1)
