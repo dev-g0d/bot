@@ -281,12 +281,12 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
     if file_url_200:
         embed.add_field(
             name="", 
-            value=f"**📦 สถานะไฟล์:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
+            value=f"**📥 สถานะไฟล์:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
             inline=False
         )
     else:
         embed.add_field(
-            name="📦 สถานะไฟล์: ❌ ไม่พบไฟล์", 
+            name="📥 สถานะไฟล์: ❌ ไม่พบไฟล์", 
             value="", 
             inline=False
         )
