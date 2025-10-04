@@ -495,7 +495,7 @@ async def download(interaction: nextcord.Interaction, urls: str = nextcord.Slash
             inline=False
         )
 
-    embed.set_footer(text="Discord • DEV/g0d • GameDdrive.Org")
+    embed.set_footer(text="Discord • DEV/g0d • GameDrive.Org")
     await interaction.followup.send(embed=embed)
 
 # --- 6. Discord Events ---
