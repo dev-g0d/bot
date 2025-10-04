@@ -28,9 +28,10 @@ def keep_alive():
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
 ALLOWED_CHANNEL_IDS = [1098314625646329966, 1422199765818413116]  # รองรับหลายชาแนล
-DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
+DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"  # ใช้ส่ง URL ให้ยูเซอร์
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
+MORRENUS_GAMES_URL = "https://manifest.morrenus.xyz/api/games?t=0"  # URL สำหรับ /info
 
 # Intents
 intents = nextcord.Intents.default()
@@ -95,13 +96,13 @@ def fetch_release_date_from_store_data(store_data: dict) -> str:
     return raw_date
 
 def get_steam_info(app_id):
-    # --- ดึงข้อมูลจาก Steam Store API ก่อน (รวม release_date, name, dlc, header_image, drm_notice) ---
-    header_image_store = None
-    name_store = None
-    dlc_count_store = 0
+    # ใช้ fetch แบบเก่า จาก Steam Store เท่านั้น
     release_date_thai = 'ไม่ระบุ'
-    store_success = False
     has_denuvo = False
+    header_image_store = None
+    name_store = 'ไม่พบแอป'
+    dlc_count_store = 0
+    store_success = False
     drm_notice = ""
 
     try:
@@ -122,48 +123,17 @@ def get_steam_info(app_id):
     except requests.RequestException as e:
         print(f"Steam Store fetch error: {e}")
 
-    # --- ดึงข้อมูลจาก SteamCMD API (เน้น DLC จาก listofdlc) ---
-    header_image_hash = None
-    dlc_count_cmd = 0
-    name_cmd = 'ไม่พบแอป'
-    cmd_success = False
-    try:
-        url = f"{STEAMCMD_API_URL}{app_id}"  # ใช้ URL เดิมจากโค้ดเก่า
-        response = requests.get(url, timeout=7)
-        response.raise_for_status()
-        data = response.json()
-        if data and data.get('status') == 'success' and app_id in data['data']:
-            app_data = data['data'][app_id]
-            common = app_data.get('common', {})
-            extended = app_data.get('extended', {})
-            cmd_success = True
-
-            name_cmd = common.get('name', 'ไม่พบแอป')
-            header_image_hash = common.get('header_image', {}).get('english')
-            dlc_list_str = extended.get('listofdlc', '')
-            dlc_items = [item.strip() for item in dlc_list_str.split(',') if item.strip()]
-            dlc_count_cmd = len(dlc_items)  # ดึง DLC จาก listofdlc โดยตรง
-    except requests.RequestException as e:
-        print(f"SteamCMD fetch error: {e}")
-
-    # --- รวมข้อมูล: prioritize Store สำหรับส่วนใหญ่ แต่ DLC prioritize CMD ถ้ามี ---
-    name = name_store if store_success else name_cmd
-    dlc_count = dlc_count_cmd if cmd_success and dlc_count_cmd > 0 else dlc_count_store  # ใช้ DLC จาก SteamCMD ถ้ามี
-    header_image = header_image_store or (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/{header_image_hash}" if header_image_hash else None)
-
-    if not name:
-        return None
-
     return {
-        'name': name,
-        'image': header_image,
-        'dlc_count': dlc_count,
+        'name': name_store,
+        'developer': store_info.get('developer', 'ไม่ระบุ') if store_success else 'ไม่ระบุ',
+        'image': header_image_store,
+        'dlc_count': dlc_count_store,
         'release_date': release_date_thai,
         'has_denuvo': has_denuvo,
     }
 
 def check_file_status(app_id: str) -> str | None:
-    url = f"{DEVGOD_BASE_URL}{app_id}"
+    url = f"{DEVGOD_BASE_URL}{app_id}"  # ยังคงใช้ DEVGOD ตามเดิม
     headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
@@ -179,7 +149,6 @@ def download_and_extract_lua(app_id: str) -> tuple[str | None, str | None]:
     """
     ดึง final URL จาก check_file_status และดาวน์โหลดไฟล์ ZIP เพื่อแตกไฟล์ .lua
     """
-    # ดึง final URL จาก check_file_status
     final_url = check_file_status(app_id)
     if not final_url:
         return None, None
@@ -189,15 +158,11 @@ def download_and_extract_lua(app_id: str) -> tuple[str | None, str | None]:
         response = requests.get(final_url, headers=headers, timeout=15)
         response.raise_for_status()
 
-        # ใช้ BytesIO เพื่อจัดการไฟล์ ZIP ในหน่วยความจำ
         with io.BytesIO(response.content) as zip_buffer:
             with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
-                # หาไฟล์ .lua ใน ZIP
                 lua_file = next((f for f in zip_ref.namelist() if f.endswith('.lua')), None)
                 if lua_file:
-                    # อ่านเนื้อหาไฟล์ .lua
                     with zip_ref.open(lua_file) as lua_content:
-                        # สร้างไฟล์ชั่วคราวเพื่อส่งผ่าน Discord
                         with tempfile.NamedTemporaryFile(delete=False, suffix='.lua') as temp_file:
                             temp_file.write(lua_content.read())
                             temp_file_path = temp_file.name
@@ -220,15 +185,49 @@ def list_files_in_zip(app_id: str) -> list[str] | None:
         response = requests.get(final_url, headers=headers, timeout=15)
         response.raise_for_status()
 
-        # ใช้ BytesIO เพื่อจัดการไฟล์ ZIP ในหน่วยความจำ
         with io.BytesIO(response.content) as zip_buffer:
             with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
-                # ดึงรายชื่อไฟล์ทั้งหมดใน ZIP
                 return zip_ref.namelist()
         return None
     except (requests.RequestException, zipfile.BadZipFile) as e:
         print(f"Error downloading or listing files in ZIP: {e}")
         return None
+
+def fetch_morrenus_database():
+    # ฟังก์ชันดึงข้อมูลจาก Morrenus games API
+    url = MORRENUS_GAMES_URL
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'max-age=0',
+        'Sec-Ch-Ua': '"Chromium";v="140", "Not_A Brand";v="24", "Google Chrome";v="140"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+        'Cookie': os.environ.get("MORRENUS_COOKIE", "")
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print(f"Morrenus games fetch error: {e}")
+        return None
+
+def check_morrenus_status():
+    # เช็คสถานะเว็บ Morrenus
+    url = "https://manifest.morrenus.xyz"
+    try:
+        response = requests.get(url, timeout=5)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
 
 # --- 5. Slash Commands ---
 @bot.slash_command(name="gen", description="ค้นหาไฟล์จาก App ID หรือ URL")
@@ -257,33 +256,43 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
     
     if steam_data:
         embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
-        embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
+        if steam_data['developer'] != 'ไม่ระบุ':
+            embed.add_field(name="ผู้พัฒนา", value=steam_data['developer'], inline=False)
+        # แสดง DLC ตามฟอร์แมตใหม่ที่มึงขอ
+        if steam_data['dlc_count'] > 0:
+            embed.add_field(
+                name="",
+                value=f"📦 สถานะ DLC: ✅ พบ DLC\n(ไม่ทราบจำนวนDLCที่พบและสูญหาย)",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="",
+                value="📦 สถานะ DLC: ℹ️ ไม่พบ DLC",
+                inline=False
+            )
         embed.add_field(name="วันวางจำหน่าย", value=steam_data['release_date'], inline=False)
         links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
         if steam_data['has_denuvo']:
             links_value += "\n:warning: ตรวจพบการป้องกัน Denuvo"
-        embed.add_field(
-            name="Links", 
-            value=links_value, 
-            inline=False
-        )
+        embed.add_field(name="Links", value=links_value, inline=False)
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
         
     if file_url_200:
         embed.add_field(
             name="", 
-            value=f"**📦 สถานะ:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
+            value=f"**📦 สถานะไฟล์:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
             inline=False
         )
     else:
         embed.add_field(
-            name="📦 สถานะ: ❌ ไม่พบไฟล์", 
+            name="📦 สถานะไฟล์: ❌ ไม่พบไฟล์", 
             value="", 
             inline=False
         )
@@ -319,16 +328,27 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
 
     if steam_data:
         embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
-        embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
-        if steam_data['has_denuvo']:
-            embed.add_field(name="⚠️ Denuvo", value="ตรวจพบการป้องกัน Denuvo", inline=True)
+        if steam_data['developer'] != 'ไม่ระบุ':
+            embed.add_field(name="ผู้พัฒนา", value=steam_data['developer'], inline=False)
+        if steam_data['dlc_count'] > 0:
+            embed.add_field(
+                name="",
+                value=f"📦 สถานะ DLC: ✅ พบ DLC\n(ไม่ทราบจำนวนDLCที่พบและสูญหาย)",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="",
+                value="📦 สถานะ DLC: ℹ️ไม่พบ DLC",
+                inline=False
+            )
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
 
     if lua_file_path and lua_file_name:
         embed.add_field(
@@ -378,19 +398,29 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
 
     if steam_data:
         embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
-        embed.add_field(name="DLCs ทั้งหมด", value=f"พบ **{steam_data['dlc_count']}** รายการ", inline=True)
-        if steam_data['has_denuvo']:
-            embed.add_field(name="⚠️ Denuvo", value="ตรวจพบการป้องกัน Denuvo", inline=True)
+        if steam_data['developer'] != 'ไม่ระบุ':
+            embed.add_field(name="ผู้พัฒนา", value=steam_data['developer'], inline=False)
+        if steam_data['dlc_count'] > 0:
+            embed.add_field(
+                name="",
+                value=f"📦 สถานะ DLC: ✅ พบ DLC\n(ไม่ทราบจำนวนDLCที่พบและสูญหาย)",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="",
+                value="📦 สถานะ DLC: ℹ️ ไม่พบ DLC",
+                inline=False
+            )
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
         embed.set_footer(text="discord • DEV/g0d • Morrenus")
 
     if file_list:
-        # แปลงรายชื่อไฟล์เป็นสตริง โดยเพิ่ม • นำหน้าแต่ละไฟล์
         file_list_str = "\n".join([f"• {file}" for file in file_list])
         embed.add_field(
             name="📄 รายชื่อไฟล์ใน ZIP", 
@@ -403,6 +433,41 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
             value="❌ ไม่พบไฟล์ ZIP หรือเกิดข้อผิดพลาดในการดาวน์โหลด/แตกไฟล์", 
             inline=False
         )
+
+    await interaction.followup.send(embed=embed)
+
+@bot.slash_command(name="info", description="แสดงข้อมูล Morrenus Database")
+async def info(interaction: nextcord.Interaction):
+    if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
+        await interaction.response.send_message("ไม่มีสิทธิในการใช้งาน กรุณาใช้คำสั่งที่ <#1422199765818413116>", ephemeral=True)
+        return
+
+    await interaction.response.defer()  # แสดงว่ากำลังประมวลผล
+
+    morrenus_data = fetch_morrenus_database()
+    status = check_morrenus_status()
+
+    embed = nextcord.Embed(
+        title="📝 Morrenus Database",
+        color=0x00FF00 if status else 0xFF0000
+    )
+
+    total_apps = morrenus_data.get('total', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
+    total_dlc = morrenus_data.get('total_dlc', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
+    # แก้ไขการเช็ก type โดยไม่ใช้ .isdigit()
+    if morrenus_data and isinstance(total_apps, (int, float)) and isinstance(total_dlc, (int, float)):
+        total_combined = total_apps + total_dlc
+    else:
+        total_combined = 'ไม่ระบุ'
+    status_text = "🟢 ทำงาน" if status else "🔴 ไม่ทำงาน"
+
+    # แก้ไขให้เป็นหลายบรรทัดตามตัวอย่าง และปรับ Website เป็น link
+    embed.add_field(name="", value=f"📦 แอปหลักทั้งหมด:{total_apps}", inline=False)
+    embed.add_field(name="", value=f"📦 DLC ทั้งหมด:{total_dlc}", inline=False)
+    embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด:{total_combined}", inline=False)
+    embed.add_field(name="", value=f"📊 Status:{status_text}", inline=False)
+
+    embed.set_footer(text="Discord • DEV/g0d • Morrenus")
 
     await interaction.followup.send(embed=embed)
 
