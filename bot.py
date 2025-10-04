@@ -485,7 +485,7 @@ async def download(interaction: nextcord.Interaction, urls: str = nextcord.Slash
         for converted_url, original_url in converted_urls:
             embed.add_field(
                 name="",
-                value=f"URL: [{original_url} ↗]({converted_url})",
+                value=f"URL: [{original_url}↗]({converted_url})",
                 inline=False
             )
     else:
