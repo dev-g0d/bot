@@ -485,13 +485,13 @@ async def download(interaction: nextcord.Interaction, urls: str = nextcord.Slash
         for converted_url, original_url in converted_urls:
             embed.add_field(
                 name="",
-                value=f"URL: {original_url} | [Bypass ↗]({converted_url})",
+                value=f"🔗 [{file_id}]({original_url}) | [Bypass ↗]({converted_url})",
                 inline=False
             )
     else:
         embed.add_field(
             name="",
-            value="❌ รองรับเฉพาะลิงก์ gofile (https://gofile.io/d/{id}) และ pixeldrain (https://pixeldrain.com/u/{id}) เท่านั้น",
+            value="❌ รองรับเฉพาะลิงก์ gofile และ pixeldrain เท่านั้น",
             inline=False
         )
 
