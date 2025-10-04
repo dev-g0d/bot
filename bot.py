@@ -221,7 +221,7 @@ def convert_download_url(url: str) -> tuple[str | None, str | None]:
     pixeldrain_match = re.match(r"https://pixeldrain\.com/u/([a-zA-Z0-9]+)", url)
     if pixeldrain_match:
         file_id = pixeldrain_match.group(1)
-        return f"https://pd.cybar.to/{file_id}", url
+        return f"https://pd.1drv.eu.org/{file_id}", url
     return None, None
 
 # --- 5. Slash Commands ---
