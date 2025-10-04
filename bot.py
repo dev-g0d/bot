@@ -446,10 +446,11 @@ async def info(interaction: nextcord.Interaction):
         total_combined = 'ไม่ระบุ'
     status_text = "🟢 ทำงาน" if status else "🔴 ไม่ทำงาน"
 
-    embed.add_field(name="", value=f"📦 แอปหลักทั้งหมด:{total_apps}", inline=False)
-    embed.add_field(name="", value=f"📦 DLC ทั้งหมด:{total_dlc}", inline=False)
-    embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด:{total_combined}", inline=False)
-    embed.add_field(name="", value=f"📊 Status:{status_text}", inline=False)
+    embed.add_field(name="", value=f"📦 แอปหลักทั้งหมด: {total_apps}", inline=False)
+    embed.add_field(name="", value=f"📦 DLC ทั้งหมด: {total_dlc}", inline=False)
+    embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด: {total_combined}", inline=False)
+    embed.add_field(name="", value=f"📊 Limit: Unlimited (ไม่จำกัด)", inline=False)
+    embed.add_field(name="", value=f"📊 Status: {status_text}", inline=False)
 
     embed.set_footer(text="Discord • DEV/g0d • Morrenus")
 
