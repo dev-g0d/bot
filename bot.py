@@ -212,17 +212,17 @@ def check_morrenus_status():
     except requests.RequestException:
         return False
 
-def convert_download_url(url: str) -> tuple[str | None, str | None]:
-    """แปลง URL จาก gofile หรือ pixeldrain เป็น URL ใหม่"""
+def convert_download_url(url: str) -> tuple[str | None, str | None, str | None, str | None]:
+    """แปลง URL จาก gofile หรือ pixeldrain เป็น URL ใหม่ พร้อมคืน file_id และ flag"""
     gofile_match = re.match(r"https://gofile\.io/d/([a-zA-Z0-9]+)", url)
     if gofile_match:
         file_id = gofile_match.group(1)
-        return f"https://gf.cybar.xyz/{file_id}", url
+        return f"https://gf.cybar.xyz/{file_id}", url, file_id, "🇬"
     pixeldrain_match = re.match(r"https://pixeldrain\.com/u/([a-zA-Z0-9]+)", url)
     if pixeldrain_match:
         file_id = pixeldrain_match.group(1)
-        return f"https://pd.1drv.eu.org/{file_id}", url
-    return None, None
+        return f"https://pd.1drv.eu.org/{file_id}", url, file_id, "🇵"
+    return None, None, None, None
 
 # --- 5. Slash Commands ---
 @bot.slash_command(name="gen", description="ค้นหาไฟล์จาก App ID หรือ URL")
@@ -472,9 +472,9 @@ async def download(interaction: nextcord.Interaction, urls: str = nextcord.Slash
     converted_urls = []
     
     for url in url_list:
-        converted_url, original_url = convert_download_url(url)
-        if converted_url and original_url:
-            converted_urls.append((converted_url, original_url))
+        converted_url, original_url, file_id, flag = convert_download_url(url)
+        if converted_url and original_url and file_id and flag:
+            converted_urls.append((converted_url, original_url, file_id, flag))
     
     embed = nextcord.Embed(
         title="📥 Bypass Download Limiter",
@@ -482,10 +482,10 @@ async def download(interaction: nextcord.Interaction, urls: str = nextcord.Slash
     )
 
     if converted_urls:
-        for converted_url, original_url in converted_urls:
+        for converted_url, original_url, file_id, flag in converted_urls:
             embed.add_field(
                 name="",
-                value=f"🔗 [{file_id}]({original_url}) | [Bypass ↗]({converted_url})",
+                value=f"🔗 {flag} /{file_id} | [Bypass ↗]({converted_url})",
                 inline=False
             )
     else:
@@ -497,7 +497,7 @@ async def download(interaction: nextcord.Interaction, urls: str = nextcord.Slash
 
     embed.set_footer(text="Discord • DEV/g0d • GameDrive.Org")
     await interaction.followup.send(embed=embed)
-
+    
 # --- 6. Discord Events ---
 @bot.event
 async def on_ready():
