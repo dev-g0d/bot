@@ -455,7 +455,7 @@ async def info(interaction: nextcord.Interaction):
 
     await interaction.followup.send(embed=embed)
 
-@bot.slash_command(name="download", description="แปลงลิงก์ gofile หรือ pixeldrain เป็นลิงก์ดาวน์โหลด")
+@bot.slash_command(name="download", description="Bypass สำหรับ gofile หรือ pixeldrain")
 async def download(interaction: nextcord.Interaction, urls: str = nextcord.SlashOption(
     name="urls",
     description="ใส่ลิงก์ gofile หรือ pixeldrain (คั่นด้วยเครื่องหมาย , หากมีหลายลิงก์)",
@@ -476,14 +476,27 @@ async def download(interaction: nextcord.Interaction, urls: str = nextcord.Slash
         if converted_url and original_url:
             converted_urls.append((converted_url, original_url))
     
-    if converted_urls:
-        response_text = "📥 Bypass Download Limiter\n"
-        for converted_url, original_url in converted_urls:
-            response_text += f"URL: {original_url} | [Bypass ↗]({converted_url})\n"
-    else:
-        response_text = "❌ รองรับเฉพาะลิงก์ gofile[](https://gofile.io/d/{id}) และ pixeldrain[](https://pixeldrain.com/u/{id}) เท่านั้น"
+    embed = nextcord.Embed(
+        title="📥 Bypass Download Limiter",
+        color=0x00FF00 if converted_urls else 0xFF0000
+    )
 
-    await interaction.followup.send(response_text)
+    if converted_urls:
+        for converted_url, original_url in converted_urls:
+            embed.add_field(
+                name="",
+                value=f"URL: {original_url} | [Bypass ↗]({converted_url})",
+                inline=False
+            )
+    else:
+        embed.add_field(
+            name="",
+            value="❌ รองรับเฉพาะลิงก์ gofile (https://gofile.io/d/{id}) และ pixeldrain (https://pixeldrain.com/u/{id}) เท่านั้น",
+            inline=False
+        )
+
+    embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+    await interaction.followup.send(embed=embed)
 
 # --- 6. Discord Events ---
 @bot.event
