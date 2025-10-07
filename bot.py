@@ -273,10 +273,10 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Solus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="Discord • DEV/g0d • Solus")
         
     if file_url_200:
         embed.add_field(
@@ -336,10 +336,10 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Solus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="Discord • DEV/g0d • Solus")
 
     if lua_file_path and lua_file_name:
         embed.add_field(
@@ -401,10 +401,10 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Solus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="discord • DEV/g0d • Solus")
 
     if file_list:
         file_list_str = "\n".join([f"• {file}" for file in file_list])
@@ -422,7 +422,7 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
 
     await interaction.followup.send(embed=embed)
 
-@bot.slash_command(name="info", description="แสดงข้อมูล Morrenus Database")
+@bot.slash_command(name="info", description="แสดงข้อมูล Solus Database")
 async def info(interaction: nextcord.Interaction):
     if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
         await interaction.response.send_message("ไม่มีสิทธิในการใช้งาน กรุณาใช้คำสั่งที่ <#1422199765818413116>", ephemeral=True)
@@ -434,7 +434,7 @@ async def info(interaction: nextcord.Interaction):
     status = check_morrenus_status()
 
     embed = nextcord.Embed(
-        title="📝 Morrenus Database",
+        title="📝 Solus Database",
         color=0x00FF00 if status else 0xFF0000
     )
 
@@ -452,7 +452,7 @@ async def info(interaction: nextcord.Interaction):
     embed.add_field(name="", value=f"📊 Limit: Unlimited (ไม่จำกัด)", inline=False)
     embed.add_field(name="", value=f"📊 Status: {status_text}", inline=False)
 
-    embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+    embed.set_footer(text="Discord • DEV/g0d • Solus")
 
     await interaction.followup.send(embed=embed)
 
