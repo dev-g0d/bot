@@ -27,18 +27,18 @@ def keep_alive():
     
 # --- 2. Configuration & API Endpoints ---
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
-ALLOWED_CHANNEL_IDS = [1098314625646329966, 1422199765818413116]  # รองรับหลายชาแนล
-DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"  # ใช้ส่ง URL ให้ยูเซอร์
+ALLOWED_CHANNEL_IDS = [1098314625646329966, 1422199765818413116]
+DEVGOD_BASE_URL = "https://devg0d.pythonanywhere.com/app_request/"
 STEAMCMD_API_URL = "https://api.steamcmd.net/v1/info/"
 STEAM_APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails?appids="
-MORRENUS_GAMES_URL = "https://manifest.morrenus.xyz/api/games?t=0"  # URL สำหรับ /info
+MORRENUS_GAMES_URL = "https://manifest.morrenus.xyz/api/games?t=0"
 
 # Intents
 intents = nextcord.Intents.default()
 intents.messages = True
 intents.message_content = True
 intents.guilds = True
-intents.members = True  # เพิ่ม intents สำหรับดึงข้อมูลสมาชิก
+intents.members = True
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
@@ -52,9 +52,6 @@ def extract_app_id(message_content):
     return None
 
 def fetch_release_date_from_store_data(store_data: dict) -> str:
-    """
-    ดึงวันวางจำหน่ายจากข้อมูล Steam Store API และแปลงเป็นภาษาไทยเต็ม
-    """
     en_to_th = {
         "Jan": "มกราคม", "Feb": "กุมภาพันธ์", "Mar": "มีนาคม", "Apr": "เมษายน",
         "May": "พฤษภาคม", "Jun": "มิถุนายน", "Jul": "กรกฎาคม", "Aug": "สิงหาคม",
@@ -71,32 +68,26 @@ def fetch_release_date_from_store_data(store_data: dict) -> str:
     if raw_date == 'ไม่ระบุ' or raw_date.lower() == 'tba':
         return 'ไม่ระบุ'
 
-    # กรณีภาษาไทยย่อ เช่น "28 เม.ย. 2017"
     for short, full in th_short_to_full.items():
         if short in raw_date:
             return raw_date.replace(short, full)
 
-    # กรณีภาษาอังกฤษ เช่น "Apr 27, 2017" หรือ "2025-06-12"
     try:
-        # ลอง parse รูปแบบ "Month Day, Year" (เช่น "Apr 27, 2017")
         dt = datetime.datetime.strptime(raw_date, "%b %d, %Y")
         return f"{dt.day} {en_to_th[dt.strftime('%b')]} {dt.year}"
     except ValueError:
         try:
-            # ลอง parse รูปแบบ "YYYY-MM-DD" (เช่น "2025-06-12")
             dt = datetime.datetime.strptime(raw_date, "%Y-%m-%d")
             return f"{dt.day} {en_to_th[dt.strftime('%b')]} {dt.year}"
         except ValueError:
             pass
 
-    # กรณีอื่น ๆ ที่ parse ไม่ได้ (เช่น "Coming Soon" หรือ format อื่น) ส่งกลับเป็นไทยเต็มถ้ามี หรือไม่ก็ raw
     for eng_month, th_month in en_to_th.items():
         if eng_month in raw_date:
             return raw_date.replace(eng_month, th_month)
     return raw_date
 
 def get_steam_info(app_id):
-    # ใช้ fetch แบบเก่า จาก Steam Store เท่านั้น
     release_date_thai = 'ไม่ระบุ'
     has_denuvo = False
     header_image_store = None
@@ -133,7 +124,7 @@ def get_steam_info(app_id):
     }
 
 def check_file_status(app_id: str) -> str | None:
-    url = f"{DEVGOD_BASE_URL}{app_id}"  # ยังคงใช้ DEVGOD ตามเดิม
+    url = f"{DEVGOD_BASE_URL}{app_id}"
     headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
@@ -146,9 +137,6 @@ def check_file_status(app_id: str) -> str | None:
     return None
 
 def download_and_extract_lua(app_id: str) -> tuple[str | None, str | None]:
-    """
-    ดึง final URL จาก check_file_status และดาวน์โหลดไฟล์ ZIP เพื่อแตกไฟล์ .lua
-    """
     final_url = check_file_status(app_id)
     if not final_url:
         return None, None
@@ -173,9 +161,6 @@ def download_and_extract_lua(app_id: str) -> tuple[str | None, str | None]:
         return None, None
 
 def list_files_in_zip(app_id: str) -> list[str] | None:
-    """
-    ดึง final URL จาก check_file_status และคืนรายชื่อไฟล์ทั้งหมดใน ZIP
-    """
     final_url = check_file_status(app_id)
     if not final_url:
         return None
@@ -194,7 +179,6 @@ def list_files_in_zip(app_id: str) -> list[str] | None:
         return None
 
 def fetch_morrenus_database():
-    # ฟังก์ชันดึงข้อมูลจาก Morrenus games API
     url = MORRENUS_GAMES_URL
     headers = {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -221,13 +205,24 @@ def fetch_morrenus_database():
         return None
 
 def check_morrenus_status():
-    # เช็คสถานะเว็บ Morrenus
     url = "https://manifest.morrenus.xyz"
     try:
         response = requests.get(url, timeout=5)
         return response.status_code == 200
     except requests.RequestException:
         return False
+
+def convert_download_url(url: str) -> tuple[str | None, str | None, str | None, str | None]:
+    """แปลง URL จาก gofile หรือ pixeldrain เป็น URL ใหม่ พร้อมคืน file_id และ flag"""
+    gofile_match = re.match(r"https://gofile\.io/d/([a-zA-Z0-9]+)", url)
+    if gofile_match:
+        file_id = gofile_match.group(1)
+        return f"https://gf.1drv.eu.org/{file_id}", url, file_id, "🇬"
+    pixeldrain_match = re.match(r"https://pixeldrain\.com/u/([a-zA-Z0-9]+)", url)
+    if pixeldrain_match:
+        file_id = pixeldrain_match.group(1)
+        return f"https://pd.1drv.eu.org/{file_id}", url, file_id, "🇵"
+    return None, None, None, None
 
 # --- 5. Slash Commands ---
 @bot.slash_command(name="gen", description="ค้นหาไฟล์จาก App ID หรือ URL")
@@ -245,7 +240,7 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
         await interaction.response.send_message("ไม่พบ App ID ในข้อมูลที่ให้มา!", ephemeral=True)
         return
 
-    await interaction.response.defer()  # แสดงว่ากำลังประมวลผล
+    await interaction.response.defer()
     steam_data = get_steam_info(app_id)
     file_url_200 = check_file_status(app_id) 
     
@@ -258,7 +253,6 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
         embed.add_field(name="ชื่อแอป", value=steam_data['name'], inline=False)
         if steam_data['developer'] != 'ไม่ระบุ':
             embed.add_field(name="ผู้พัฒนา", value=steam_data['developer'], inline=False)
-        # แสดง DLC ตามฟอร์แมตใหม่ที่มึงขอ
         if steam_data['dlc_count'] > 0:
             embed.add_field(
                 name="",
@@ -279,20 +273,20 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Solus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="Discord • DEV/g0d • Solus")
         
     if file_url_200:
         embed.add_field(
             name="", 
-            value=f"**📦 สถานะไฟล์:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
+            value=f"**📥 สถานะไฟล์:** ✅ [**พร้อมดาวน์โหลด↗**]({file_url_200})", 
             inline=False
         )
     else:
         embed.add_field(
-            name="📦 สถานะไฟล์: ❌ ไม่พบไฟล์", 
+            name="📥 สถานะไฟล์: ❌ ไม่พบไฟล์", 
             value="", 
             inline=False
         )
@@ -313,12 +307,9 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
         await interaction.response.send_message("App ID ต้องเป็นตัวเลขเท่านั้น!", ephemeral=True)
         return
 
-    await interaction.response.defer()  # แสดงว่ากำลังประมวลผล
+    await interaction.response.defer()
 
-    # ดึงข้อมูล Steam
     steam_data = get_steam_info(app_id)
-    
-    # ดาวน์โหลดและแตกไฟล์ ZIP จาก final URL
     lua_file_name, lua_file_path = download_and_extract_lua(app_id)
 
     embed = nextcord.Embed(
@@ -339,16 +330,16 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
         else:
             embed.add_field(
                 name="",
-                value="📦 สถานะ DLC: ℹ️ไม่พบ DLC",
+                value="📦 สถานะ DLC: ℹ️ ไม่พบ DLC",
                 inline=False
             )
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Solus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="Discord • DEV/g0d • Solus")
 
     if lua_file_path and lua_file_name:
         embed.add_field(
@@ -356,10 +347,8 @@ async def check_lua(interaction: nextcord.Interaction, app_id: str = nextcord.Sl
             value=f"✅ พบไฟล์ **{lua_file_name}** และพร้อมส่ง!", 
             inline=False
         )
-        # ส่งไฟล์ .lua
         file = nextcord.File(lua_file_path, filename=lua_file_name)
         await interaction.followup.send(embed=embed, file=file)
-        # ลบไฟล์ชั่วคราวหลังจากส่ง
         os.remove(lua_file_path)
     else:
         embed.add_field(
@@ -383,12 +372,9 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
         await interaction.response.send_message("App ID ต้องเป็นตัวเลขเท่านั้น!", ephemeral=True)
         return
 
-    await interaction.response.defer()  # แสดงว่ากำลังประมวลผล
+    await interaction.response.defer()
 
-    # ดึงข้อมูล Steam
     steam_data = get_steam_info(app_id)
-    
-    # ดึงรายชื่อไฟล์ใน ZIP
     file_list = list_files_in_zip(app_id)
 
     embed = nextcord.Embed(
@@ -415,10 +401,10 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
         
         if steam_data['image']:
             embed.set_image(url=steam_data['image'])
-            embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+            embed.set_footer(text="Discord • DEV/g0d • Solus")
     else:
         embed.add_field(name="สถานะ Steam", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
-        embed.set_footer(text="discord • DEV/g0d • Morrenus")
+        embed.set_footer(text="discord • DEV/g0d • Solus")
 
     if file_list:
         file_list_str = "\n".join([f"• {file}" for file in file_list])
@@ -436,41 +422,83 @@ async def check_file(interaction: nextcord.Interaction, app_id: str = nextcord.S
 
     await interaction.followup.send(embed=embed)
 
-@bot.slash_command(name="info", description="แสดงข้อมูล Morrenus Database")
+@bot.slash_command(name="info", description="แสดงข้อมูล Solus Database")
 async def info(interaction: nextcord.Interaction):
     if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
         await interaction.response.send_message("ไม่มีสิทธิในการใช้งาน กรุณาใช้คำสั่งที่ <#1422199765818413116>", ephemeral=True)
         return
 
-    await interaction.response.defer()  # แสดงว่ากำลังประมวลผล
+    await interaction.response.defer()
 
     morrenus_data = fetch_morrenus_database()
     status = check_morrenus_status()
 
     embed = nextcord.Embed(
-        title="📝 Morrenus Database",
+        title="📝 Solus Database",
         color=0x00FF00 if status else 0xFF0000
     )
 
     total_apps = morrenus_data.get('total', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
     total_dlc = morrenus_data.get('total_dlc', 'ไม่ระบุ') if morrenus_data else 'ไม่ระบุ'
-    # แก้ไขการเช็ก type โดยไม่ใช้ .isdigit()
     if morrenus_data and isinstance(total_apps, (int, float)) and isinstance(total_dlc, (int, float)):
         total_combined = total_apps + total_dlc
     else:
         total_combined = 'ไม่ระบุ'
     status_text = "🟢 ทำงาน" if status else "🔴 ไม่ทำงาน"
 
-    # แก้ไขให้เป็นหลายบรรทัดตามตัวอย่าง และปรับ Website เป็น link
-    embed.add_field(name="", value=f"📦 แอปหลักทั้งหมด:{total_apps}", inline=False)
-    embed.add_field(name="", value=f"📦 DLC ทั้งหมด:{total_dlc}", inline=False)
-    embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด:{total_combined}", inline=False)
-    embed.add_field(name="", value=f"📊 Status:{status_text}", inline=False)
+    embed.add_field(name="", value=f"📦 แอปหลักทั้งหมด: {total_apps}", inline=False)
+    embed.add_field(name="", value=f"📦 DLC ทั้งหมด: {total_dlc}", inline=False)
+    embed.add_field(name="", value=f"📦 รวมแอปทั้งหมด: {total_combined}", inline=False)
+    embed.add_field(name="", value=f"📊 Limit: Unlimited (ไม่จำกัด)", inline=False)
+    embed.add_field(name="", value=f"📊 Status: {status_text}", inline=False)
 
-    embed.set_footer(text="Discord • DEV/g0d • Morrenus")
+    embed.set_footer(text="Discord • DEV/g0d • Solus")
 
     await interaction.followup.send(embed=embed)
 
+@bot.slash_command(name="download", description="Bypass สำหรับ gofile หรือ pixeldrain")
+async def download(interaction: nextcord.Interaction, urls: str = nextcord.SlashOption(
+    name="urls",
+    description="ใส่ลิงก์ gofile หรือ pixeldrain (คั่นด้วยเครื่องหมาย , หากมีหลายลิงก์)",
+    required=True
+)):
+    if interaction.channel_id not in ALLOWED_CHANNEL_IDS:
+        await interaction.response.send_message("ไม่มีสิทธิในการใช้งาน กรุณาใช้คำสั่งที่ <#1422199765818413116>", ephemeral=True)
+        return
+
+    await interaction.response.defer()
+
+    # แยก URLs ถ้ามีหลายอัน
+    url_list = [url.strip() for url in urls.split(",")]
+    converted_urls = []
+    
+    for url in url_list:
+        converted_url, original_url, file_id, flag = convert_download_url(url)
+        if converted_url and original_url and file_id and flag:
+            converted_urls.append((converted_url, original_url, file_id, flag))
+    
+    embed = nextcord.Embed(
+        title="📥 Bypass Download Limiter",
+        color=0x00FF00 if converted_urls else 0xFF0000
+    )
+
+    if converted_urls:
+        for converted_url, original_url, file_id, flag in converted_urls:
+            embed.add_field(
+                name="",
+                value=f"🔗 {flag} [/{file_id}]({original_url}) | [Bypass ↗]({converted_url})",
+                inline=False
+            )
+    else:
+        embed.add_field(
+            name="",
+            value="❌ รองรับเฉพาะลิงก์ gofile และ pixeldrain เท่านั้น",
+            inline=False
+        )
+
+    embed.set_footer(text="Discord • DEV/g0d • GameDrive.Org")
+    await interaction.followup.send(embed=embed)
+    
 # --- 6. Discord Events ---
 @bot.event
 async def on_ready():
