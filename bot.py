@@ -203,37 +203,29 @@ async def gen(interaction: nextcord.Interaction, input_value: str = nextcord.Sla
     file_url_200 = check_file_status(app_id) 
     
     embed = nextcord.Embed(
-        title=steam_data['name'] if steam_data['name'] != 'ไม่พบแอป' else f"App ID: {app_id}",
-        description="ข้อมูลจาก Steam และสถานะไฟล์",
-        color=0x1E90FF
+        title=f"📌 Steam App ID: {app_id}",
+        color=0x2E8B57
     )
     
     if steam_data['name'] != 'ไม่พบแอป':
         embed.add_field(name="🎮 ชื่อเกม", value=steam_data['name'], inline=True)
-        embed.add_field(name="🛠️ ผู้พัฒนา", value=steam_data['developer'] if steam_data['developer'] != 'ไม่ระบุ' else 'ไม่ระบุ', inline=True)
+        embed.add_field(name="🛠️ ผู้พัฒนา", value=steam_data['developer'] if steam_data['developer'] != 'ไม่ระบุ' else 'N/A', inline=True)
         embed.add_field(name="📅 วันวางจำหน่าย", value=steam_data['release_date'], inline=True)
-        embed.add_field(
-            name="📦 DLC",
-            value=f"พบ {steam_data['dlc_count']} DLC" if steam_data['dlc_count'] > 0 else "ไม่พบ DLC",
-            inline=True
-        )
-        links_value = f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)"
+        embed.add_field(name="📦 DLC", value=f"มี {steam_data['dlc_count']} DLC" if steam_data['dlc_count'] > 0 else "ไม่มี DLC", inline=True)
+        embed.add_field(name="🔗 ลิงก์", value=f"[Steam Store](https://store.steampowered.com/app/{app_id}/) | [SteamDB](https://steamdb.info/app/{app_id}/)", inline=False)
         if steam_data['has_denuvo']:
-            links_value += "\n⚠️ ตรวจพบ Denuvo DRM"
-        embed.add_field(name="🔗 ลิงก์", value=links_value, inline=False)
+            embed.add_field(name="⚠️ DRM", value="ตรวจพบ Denuvo", inline=False)
+        if file_url_200:
+            embed.add_field(name="📥 ดาวน์โหลด", value=f"[พร้อมดาวน์โหลด]({file_url_200})", inline=False)
+        else:
+            embed.add_field(name="📥 ดาวน์โหลด", value="ไม่มีไฟล์", inline=False)
     else:
         embed.add_field(name="❌ สถานะ", value="ไม่พบข้อมูลเกมบน Steam", inline=False)
     
-    embed.add_field(
-        name="📥 ดาวน์โหลด",
-        value=f"[พร้อมดาวน์โหลด ↗]({file_url_200})" if file_url_200 else "ไม่พบไฟล์",
-        inline=False
-    )
-    
     if steam_data['image']:
-        embed.set_thumbnail(url=steam_data['image'])
-    embed.set_footer(text="DEV/g0d • Solus", icon_url="https://i.imgur.com/your-icon.png")  # Replace with actual icon URL if available
-    
+        embed.set_image(url=steam_data['image'])
+    embed.set_footer(text="DEV/g0d • Solus")
+
     await interaction.followup.send(embed=embed)
 
 @bot.slash_command(name="download", description="Bypass สำหรับ gofile หรือ pixeldrain")
